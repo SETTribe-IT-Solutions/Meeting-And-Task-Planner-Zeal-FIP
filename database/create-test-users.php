@@ -23,7 +23,8 @@ if ($row['count'] == 0) {
     foreach ($testUsers as $user) {
         $insertQuery = 'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)';
         $stmt = mysqli_prepare($conn, $insertQuery);
-        mysqli_stmt_bind_param($stmt, 'ssss', $user['name'], $user['email'], $user['password'], $user['role']);
+        $hashedPassword = password_hash($user['password'], PASSWORD_BCRYPT);
+        mysqli_stmt_bind_param($stmt, 'ssss', $user['name'], $user['email'], $hashedPassword, $user['role']);
         
         if (mysqli_stmt_execute($stmt)) {
             echo "<p style='color: green;'>✓ Created: " . htmlspecialchars($user['email']) . "</p>";

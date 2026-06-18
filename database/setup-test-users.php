@@ -36,7 +36,8 @@ foreach ($testUsers as $user) {
         continue;
     }
     
-    mysqli_stmt_bind_param($stmt, 'ssss', $user['name'], $user['email'], $user['password'], $user['role']);
+    $hashedPassword = password_hash($user['password'], PASSWORD_DEFAULT);
+    mysqli_stmt_bind_param($stmt, 'ssss', $user['name'], $user['email'], $hashedPassword, $user['role']);
     
     if (mysqli_stmt_execute($stmt)) {
         echo "<tr><td>" . htmlspecialchars($user['email']) . "</td><td>" . htmlspecialchars($user['password']) . "</td><td>" . htmlspecialchars($user['role']) . "</td>";

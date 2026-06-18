@@ -362,7 +362,9 @@
             <h2>Welcome Back</h2>
             <p class="subtitle">Sign in to continue to your dashboard</p>
             
-            <form action="login_process.php" method="POST">
+            <div id="loginMessage" class="mb-3" style="display: none;"></div>
+
+            <form action="login_process.php" method="POST" id="loginForm">
                 <!-- Email Field -->
                 <div class="form-group">
                     <label class="form-label">Email Address</label>
@@ -370,11 +372,13 @@
                         <i class="fas fa-envelope input-icon"></i>
                         <input 
                             type="email" 
-                            name="email" 
+                            name="email"
+                            id="email"
                             class="form-control" 
-                            placeholder="Enter your email" 
+                            placeholder="Enter your email"
                             required>
                     </div>
+                    <div class="text-danger mt-1" id="emailError"></div>
                 </div>
                 
                 <!-- Password Field -->
@@ -384,7 +388,7 @@
                         <i class="fas fa-lock input-icon"></i>
                         <input 
                             type="password" 
-                            name="password" 
+                            name="password"
                             id="password" 
                             class="form-control" 
                             placeholder="Enter your password" 
@@ -394,6 +398,7 @@
                         </button>
                     </div>
                 </div>
+                <div class="text-danger mt-1" id="passwordError"></div>
                 
                 <!-- Remember & Forgot -->
                 <div class="remember-forgot">
@@ -405,7 +410,7 @@
                 </div>
                 
                 <!-- Login Button -->
-                <button type="submit" class="btn-login">Sign In</button>
+                <button type="submit" class="btn-login" id="loginButton">Sign In</button>
             </form>
             
             <!-- Sign Up Link -->
@@ -416,6 +421,7 @@
     </div>
     
     <script>
+        // Function to toggle password visibility
         function togglePassword() {
             const passwordInput = document.getElementById('password');
             const toggleIcon = document.getElementById('toggleIcon');
@@ -430,6 +436,112 @@
                 toggleIcon.classList.add('fa-eye');
             }
         }
+
+        // Client-side validation functions
+        function validateEmail(email) {
+            if (!email) return 'Email is required.';
+            if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) return 'Please enter a valid email address.';
+            return '';
+        }
+
+        function validatePassword(password) {
+            if (!password) return 'Password is required.';
+            if (password.length < 6) return 'Password must be at least 6 characters long.';
+            return '';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const emailError = document.getElementById('emailError');
+            const passwordError = document.getElementById('passwordError');
+            const loginButton = document.getElementById('loginButton');
+            const loginMessage = document.getElementById('loginMessage');
+
+            // Clear previous error messages
+            function clearErrors() {
+                emailError.textContent = '';
+                passwordError.textContent = '';
+                emailInput.classList.remove('is-invalid');
+                passwordInput.classList.remove('is-invalid');
+                loginMessage.style.display = 'none';
+                loginMessage.className = 'mb-3'; // Reset classes
+            }
+
+            // Display general message
+            function showMessage(message, type) {
+                loginMessage.textContent = message;
+                loginMessage.className = `mb-3 ${type}-message`;
+                loginMessage.style.display = 'block';
+            }
+
+            // Real-time validation on blur
+            emailInput.addEventListener('blur', function() {
+                const error = validateEmail(emailInput.value);
+                emailError.textContent = error;
+                emailInput.classList.toggle('is-invalid', !!error);
+            });
+
+            passwordInput.addEventListener('blur', function() {
+                const error = validatePassword(passwordInput.value);
+                passwordError.textContent = error;
+                passwordInput.classList.toggle('is-invalid', !!error);
+            });
+
+            loginForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                clearErrors(); // Clear previous errors on new submission
+
+                // Client-side validation before sending to server
+                const emailValidationResult = validateEmail(emailInput.value);
+                const passwordValidationResult = validatePassword(passwordInput.value);
+
+                if (emailValidationResult) {
+                    emailError.textContent = emailValidationResult;
+                    emailInput.classList.add('is-invalid');
+                }
+                if (passwordValidationResult) {
+                    passwordError.textContent = passwordValidationResult;
+                    passwordInput.classList.add('is-invalid');
+                }
+
+                if (emailValidationResult || passwordValidationResult) {
+                    showMessage('Please correct the errors in the form.', 'error');
+                    return; // Stop submission if client-side validation fails
+                }
+
+                loginButton.disabled = true;
+                loginButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Signing In...';
+
+                const formData = new FormData(loginForm);
+
+                try {
+                    const response = await fetch('login_process.php', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        showMessage(data.message, 'success');
+                        setTimeout(() => {
+                            window.location.href = data.redirect;
+                        }, 1000);
+                    } else {
+                        showMessage(data.message, 'error');
+                        loginButton.disabled = false;
+                        loginButton.innerHTML = 'Sign In';
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    showMessage('An unexpected error occurred. Please try again.', 'error');
+                    loginButton.disabled = false;
+                    loginButton.innerHTML = 'Sign In';
+                }
+            });
+        });
     </script>
 </body>
 </html>
