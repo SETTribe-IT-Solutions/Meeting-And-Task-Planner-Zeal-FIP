@@ -25,6 +25,9 @@ include("../includes/header.php");
             <a href="view_meetings.php" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
                 <i class="fas fa-calendar-alt"></i> View Meetings
             </a>
+            <a href="register_employee.php" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
+                <i class="fas fa-user-plus"></i> Register Employee
+            </a>
             <a href="add_attendance.php" class="sidebar-item active" style="background: linear-gradient(135deg, <?php echo $navbar_gradient; ?>); color: white;">
                 <i class="fas fa-clipboard-check"></i> Mark Attendance
             </a>

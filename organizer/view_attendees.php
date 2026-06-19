@@ -41,6 +41,9 @@ include("../includes/header.php");
             <a href="view_meetings.php" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
                 <i class="fas fa-calendar-alt"></i> View Meetings
             </a>
+            <a href="register_employee.php" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
+                <i class="fas fa-user-plus"></i> Register Employee
+            </a>
             <a href="#" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
                 <i class="fas fa-tasks"></i> Manage Tasks
             </a>
@@ -56,6 +59,9 @@ include("../includes/header.php");
                     <div>
                         <a href="../dashboards/organizer.php" class="btn btn-outline-secondary btn-sm shadow-sm me-2">
                             <i class="fas fa-arrow-left me-1"></i> Dashboard
+                        </a>
+                        <a href="register_employee.php" class="btn btn-outline-primary btn-sm shadow-sm me-2">
+                            <i class="fas fa-user-plus me-1"></i> Register Employee
                         </a>
                         <a href="add_attendees.php" class="btn btn-primary btn-sm shadow-sm" style="background: <?php echo $navbar_gradient; ?>; border: none;">
                             <i class="fas fa-user-plus me-1"></i> Add New Attendees

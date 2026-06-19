@@ -14,6 +14,7 @@ $preselected_meeting_id = isset($_GET['meeting_id']) ? intval($_GET['meeting_id'
 // Fetch meetings and employees (using distinct variable names for results)
 $meetings_result = mysqli_query($conn, "SELECT * FROM meetings ORDER BY meeting_date DESC, meeting_time DESC");
 $employees_result = mysqli_query($conn, "SELECT * FROM users WHERE role='employee' ORDER BY name ASC");
+$employee_count = $employees_result ? mysqli_num_rows($employees_result) : 0;
 
 // Include header
 include("../includes/header.php");
@@ -29,6 +30,9 @@ include("../includes/header.php");
             <a href="view_meetings.php" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
                 <i class="fas fa-calendar-alt"></i> View Meetings
             </a>
+            <a href="register_employee.php<?php echo $preselected_meeting_id > 0 ? '?meeting_id=' . $preselected_meeting_id : ''; ?>" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
+                <i class="fas fa-user-plus"></i> Register Employee
+            </a>
             <a href="#" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
                 <i class="fas fa-tasks"></i> Manage Tasks
             </a>
@@ -41,9 +45,14 @@ include("../includes/header.php");
                     <h2 class="fw-bold text-dark">
                         <i class="fas fa-user-plus text-primary me-2"></i> Add Meeting Attendees
                     </h2>
-                    <a href="view_meetings.php" class="btn btn-outline-secondary btn-sm shadow-sm">
-                        <i class="fas fa-arrow-left me-1"></i> Back to Meetings
-                    </a>
+                    <div>
+                        <a href="register_employee.php<?php echo $preselected_meeting_id > 0 ? '?meeting_id=' . $preselected_meeting_id : ''; ?>" class="btn btn-primary btn-sm shadow-sm me-2" style="background: <?php echo $navbar_gradient; ?>; border: none;">
+                            <i class="fas fa-user-plus me-1"></i> Register Employee
+                        </a>
+                        <a href="view_meetings.php" class="btn btn-outline-secondary btn-sm shadow-sm">
+                            <i class="fas fa-arrow-left me-1"></i> Back to Meetings
+                        </a>
+                    </div>
                 </div>
 
                 <div class="row justify-content-center">
@@ -91,6 +100,9 @@ include("../includes/header.php");
                                                 <i class="fas fa-users text-primary"></i>
                                             </span>
                                             <select name="users[]" id="employeeSelect" multiple class="form-select bg-light border-start-0" style="height: 200px;" required>
+                                                <?php if ($employee_count === 0): ?>
+                                                    <option value="" disabled>No employees registered yet</option>
+                                                <?php endif; ?>
                                                 <?php while($emp = mysqli_fetch_assoc($employees_result)): ?>
                                                 <option value="<?php echo $emp['id']; ?>">
                                                     <?php echo htmlspecialchars($emp['name']); ?> (<?php echo htmlspecialchars($emp['email']); ?>)
@@ -98,7 +110,12 @@ include("../includes/header.php");
                                                 <?php endwhile; ?>
                                             </select>
                                         </div>
-                                        <div class="form-text">Hold down Ctrl (Windows) or Command (Mac) to select multiple employees.</div>
+                                        <div class="form-text">
+                                            Hold down Ctrl (Windows) or Command (Mac) to select multiple employees.
+                                            <?php if ($employee_count === 0): ?>
+                                                <a href="register_employee.php<?php echo $preselected_meeting_id > 0 ? '?meeting_id=' . $preselected_meeting_id : ''; ?>">Register an employee first.</a>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
 
                                     <!-- Action Buttons -->

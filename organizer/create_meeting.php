@@ -22,6 +22,9 @@ include("../includes/header.php");
             <a href="view_meetings.php" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
                 <i class="fas fa-calendar-alt"></i> View Meetings
             </a>
+            <a href="register_employee.php" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
+                <i class="fas fa-user-plus"></i> Register Employee
+            </a>
             <a href="#" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
                 <i class="fas fa-tasks"></i> Manage Tasks
             </a>
@@ -98,9 +101,14 @@ include("../includes/header.php");
                                 <div class="col-md-12 mb-3">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <label class="form-label fw-bold mb-0">Select Employees (Attendees)</label>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="selectAll">
-                                            <label class="form-check-label small" for="selectAll">Select All</label>
+                                        <div class="d-flex align-items-center gap-3">
+                                            <a href="register_employee.php" class="small text-decoration-none">
+                                                <i class="fas fa-user-plus me-1"></i> Register Employee
+                                            </a>
+                                            <div class="form-check mb-0">
+                                                <input class="form-check-input" type="checkbox" id="selectAll">
+                                                <label class="form-check-label small" for="selectAll">Select All</label>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="input-group mb-2">

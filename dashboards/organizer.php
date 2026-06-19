@@ -13,6 +13,11 @@ $meeting_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM meetings");
 $meeting_data = mysqli_fetch_assoc($meeting_query);
 $total_meetings = $meeting_data['total'] ?? 0;
 
+// Fetch employee count
+$employee_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM users WHERE role='employee'");
+$employee_data = mysqli_fetch_assoc($employee_query);
+$total_employees = $employee_data['total'] ?? 0;
+
 // Include header
 include("../includes/header.php");
 ?>
@@ -26,6 +31,9 @@ include("../includes/header.php");
             </a>
             <a href="../organizer/view_meetings.php" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
                 <i class="fas fa-calendar-alt"></i> View Meetings
+            </a>
+            <a href="../organizer/register_employee.php" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
+                <i class="fas fa-user-plus"></i> Register Employee
             </a>
             <a href="../organizer/add_attendance.php" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
                 <i class="fas fa-clipboard-check"></i> Mark Attendance
@@ -82,6 +90,15 @@ include("../includes/header.php");
                     <div class="card-title">Reports</div>
                     <div class="card-number" style="color: #9c27b0;">View</div>
                     <div class="card-description">Attendance summary</div>
+                </div>
+
+                <div class="card-item" onclick="window.location='../organizer/register_employee.php'">
+                    <div class="card-icon" style="background: #e8f5e9; color: #2e7d32;">
+                        <i class="fas fa-user-plus"></i>
+                    </div>
+                    <div class="card-title">Employees</div>
+                    <div class="card-number" style="color: #2e7d32;"><?php echo $total_employees; ?></div>
+                    <div class="card-description">Register for meetings</div>
                 </div>
 
                 <div class="card-item" onclick="window.location='../organizer/add_attendance.php'">

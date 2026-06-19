@@ -41,6 +41,9 @@ include("../includes/header.php");
             <a href="view_meetings.php" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
                 <i class="fas fa-calendar-alt"></i> View Meetings
             </a>
+            <a href="register_employee.php<?php echo $meeting_id > 0 ? '?meeting_id=' . $meeting_id : ''; ?>" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
+                <i class="fas fa-user-plus"></i> Register Employee
+            </a>
             <a href="add_attendance.php" class="sidebar-item active" style="background: linear-gradient(135deg, <?php echo $navbar_gradient; ?>); color: white;">
                 <i class="fas fa-clipboard-check"></i> Mark Attendance
             </a>
@@ -63,6 +66,9 @@ include("../includes/header.php");
                         </div>
                         <a href="add_attendees.php?meeting_id=<?= $meeting_id ?>" class="btn btn-primary btn-sm shadow-sm" style="background: <?php echo $navbar_gradient; ?>; border: none;">
                             <i class="fas fa-user-plus me-1"></i> Add Attendee
+                        </a>
+                        <a href="register_employee.php?meeting_id=<?= $meeting_id ?>" class="btn btn-outline-primary btn-sm shadow-sm ms-2">
+                            <i class="fas fa-user-plus me-1"></i> Register Employee
                         </a>
                     </div>
                 </div>
@@ -113,6 +119,7 @@ include("../includes/header.php");
                                                 <i class="fas fa-user-slash fa-3x mb-3 text-muted opacity-25"></i>
                                                 <p class="text-muted mb-0">No attendees assigned to this meeting yet.</p>
                                                 <a href="add_attendees.php?meeting_id=<?= $meeting_id ?>" class="btn btn-sm btn-outline-primary mt-3">Assign Attendees Now</a>
+                                                <a href="register_employee.php?meeting_id=<?= $meeting_id ?>" class="btn btn-sm btn-primary mt-3 ms-2" style="background: <?php echo $navbar_gradient; ?>; border: none;">Register Employee</a>
                                             </td>
                                         </tr>
                                         <?php endif; ?>

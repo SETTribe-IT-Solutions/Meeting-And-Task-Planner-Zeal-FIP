@@ -25,6 +25,9 @@ include("../includes/header.php");
             <a href="view_meetings.php" class="sidebar-item active" style="background: linear-gradient(135deg, <?php echo $navbar_gradient; ?>); color: white;">
                 <i class="fas fa-calendar-alt"></i> View Meetings
             </a>
+            <a href="register_employee.php" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
+                <i class="fas fa-user-plus"></i> Register Employee
+            </a>
             <a href="#" class="sidebar-item" style="color: <?php echo $primary_color; ?>;">
                 <i class="fas fa-tasks"></i> Manage Tasks
             </a>
@@ -37,9 +40,14 @@ include("../includes/header.php");
                     <h2 class="fw-bold text-dark">
                         <i class="fas fa-calendar-check text-primary me-2"></i> Scheduled Meetings
                     </h2>
-                    <a href="create_meeting.php" class="btn btn-primary btn-sm shadow-sm" style="background: <?php echo $navbar_gradient; ?>; border: none;">
-                        <i class="fas fa-plus me-1"></i> Create New Meeting
-                    </a>
+                    <div>
+                        <a href="register_employee.php" class="btn btn-outline-primary btn-sm shadow-sm me-2">
+                            <i class="fas fa-user-plus me-1"></i> Register Employee
+                        </a>
+                        <a href="create_meeting.php" class="btn btn-primary btn-sm shadow-sm" style="background: <?php echo $navbar_gradient; ?>; border: none;">
+                            <i class="fas fa-plus me-1"></i> Create New Meeting
+                        </a>
+                    </div>
                 </div>
 
                 <div class="card border-0 shadow-sm" style="border-radius: 15px;">

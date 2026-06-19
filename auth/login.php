@@ -1,3 +1,21 @@
+<?php
+session_start();
+
+if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
+    if ($_SESSION['role'] === 'organizer') {
+        header('Location: ../dashboards/organizer.php');
+        exit();
+    }
+
+    if ($_SESSION['role'] === 'collector') {
+        header('Location: ../dashboards/collector.php');
+        exit();
+    }
+
+    header('Location: ../dashboards/employee.php');
+    exit();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -415,7 +433,7 @@
             
             <!-- Sign Up Link -->
             <div class="signup-link">
-                Don't have an account? <a href="#">Create one</a>
+                New here? <a href="../index.php">Back to home</a>
             </div>
         </div>
     </div>
