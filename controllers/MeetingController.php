@@ -35,6 +35,12 @@ $agenda = trim($_POST['agenda']);
 $department = trim($_POST['department']);
 $organizerId = (int) $_SESSION['user_id'];
 
+if (!in_array($department, getDepartments(), true)) {
+    $_SESSION['error'] = 'Please select a valid department.';
+    header('Location: ../modules/meetings/create.php');
+    exit();
+}
+
 try {
     $conn = getDBConnection();
     $stmt = $conn->prepare(

@@ -1,368 +1,253 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-  <title>Latur District | Login · Meeting & Task Planner</title>
-  <!-- Font Awesome 6 -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+<?php
+// modules/tasks/index.php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-    body {
-      font-family: 'Segoe UI', 'Poppins', Roboto, system-ui, sans-serif;
-      background: #f0f4f9;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      padding: 1.5rem;
-    }
+if (!isset($_SESSION['role'])) {
+    header('Location: ../users/login.php');
+    exit();
+}
 
-    /* background with Latur Municipal Corporation image */
-    body::before {
-      content: "";
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-image: url('https://lh3.googleusercontent.com/p/AF1QipP5XHmW_GAdbic9qYL0Wrcfcx_qRN3bHj1Wk1iC=s1360-w1360-h1020');
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      opacity: 0.12;
-      z-index: -1;
-      pointer-events: none;
-    }
+require_once '../../config/db.php';
+include_once '../../includes/header.php';
 
-    .login-container {
-      width: 100%;
-      max-width: 520px;
-      background: rgba(255, 255, 255, 0.92);
-      backdrop-filter: blur(14px);
-      border-radius: 28px;
-      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
-      padding: 2.5rem 2.2rem;
-      border: 1px solid rgba(255, 255, 255, 0.5);
-      animation: fadeSlide 0.6s ease;
-    }
+$conn = getDBConnection();
+$user_id = $_SESSION['user_id'];
+$role = $_SESSION['role'];
 
-    @keyframes fadeSlide {
-      0% { opacity: 0; transform: translateY(20px); }
-      100% { opacity: 1; transform: translateY(0); }
-    }
+// Filters
+$statusFilter = isset($_GET['status']) ? sanitizeInput($_GET['status']) : '';
+$priorityFilter = isset($_GET['priority']) ? sanitizeInput($_GET['priority']) : '';
+$searchQuery = isset($_GET['search']) ? sanitizeInput($_GET['search']) : '';
 
-    .login-header {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
+// Build query based on role and filters
+$sql = "";
+$params = [];
+$types = "";
 
-    .emblem-circle {
-      background: #f9b81b;
-      width: 65px;
-      height: 65px;
-      border-radius: 50%;
-      margin: 0 auto 0.8rem;
-      background-image: url('https://lh3.googleusercontent.com/p/AF1QipP5XHmW_GAdbic9qYL0Wrcfcx_qRN3bHj1Wk1iC=s1360-w1360-h1020');
-      background-size: cover;
-      background-position: center;
-      border: 3px solid white;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
+if ($role === 'Collector') {
+    // Collector sees all tasks
+    $sql = "SELECT t.*, u.name as assignee_name, m.title as meeting_title, o.name as organizer_name 
+            FROM tasks t 
+            JOIN users u ON t.assigned_to = u.id 
+            JOIN meetings m ON t.meeting_id = m.id
+            JOIN users o ON m.organizer_id = o.id
+            WHERE 1=1";
+} elseif ($role === 'Organizer') {
+    // Organizer sees tasks for meetings they created
+    $sql = "SELECT t.*, u.name as assignee_name, m.title as meeting_title, o.name as organizer_name 
+            FROM tasks t 
+            JOIN users u ON t.assigned_to = u.id 
+            JOIN meetings m ON t.meeting_id = m.id
+            JOIN users o ON m.organizer_id = o.id
+            WHERE m.organizer_id = ?";
+    $params[] = $user_id;
+    $types .= "i";
+} else {
+    // Employee sees tasks assigned to them
+    $sql = "SELECT t.*, u.name as assignee_name, m.title as meeting_title, o.name as organizer_name 
+            FROM tasks t 
+            JOIN users u ON t.assigned_to = u.id 
+            JOIN meetings m ON t.meeting_id = m.id
+            JOIN users o ON m.organizer_id = o.id
+            WHERE t.assigned_to = ?";
+    $params[] = $user_id;
+    $types .= "i";
+}
 
-    .login-header h2 {
-      color: #0b3d5f;
-      font-size: 1.9rem;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-    }
+if (!empty($statusFilter)) {
+    $sql .= " AND t.status = ?";
+    $params[] = $statusFilter;
+    $types .= "s";
+}
+if (!empty($priorityFilter)) {
+    $sql .= " AND t.priority = ?";
+    $params[] = $priorityFilter;
+    $types .= "s";
+}
+if (!empty($searchQuery)) {
+    $sql .= " AND (t.title LIKE ? OR m.title LIKE ? OR u.name LIKE ?)";
+    $searchWildcard = "%" . $searchQuery . "%";
+    $params[] = $searchWildcard;
+    $params[] = $searchWildcard;
+    $params[] = $searchWildcard;
+    $types .= "sss";
+}
 
-    .login-header p {
-      color: #4b5563;
-      margin-top: 0.3rem;
-      font-size: 0.95rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-    }
+$sql .= " ORDER BY t.due_date ASC";
 
-    .role-selector {
-      display: flex;
-      gap: 12px;
-      margin: 1.8rem 0 1.5rem;
-      justify-content: center;
-    }
+$stmt = $conn->prepare($sql);
+if (!empty($params)) {
+    $stmt->bind_param($types, ...$params);
+}
+$stmt->execute();
+$tasks = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+?>
 
-    .role-card {
-      flex: 1;
-      background: #f1f5f9;
-      border-radius: 16px;
-      padding: 0.8rem 0.4rem;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.25s;
-      border: 2px solid transparent;
-      font-weight: 500;
-      color: #334155;
-    }
+<div class="row">
+    <div class="col-12">
+        <?php if (isset($_SESSION['success'])): ?>
+            <div class="alert alert-success alert-dismissible fade show rounded-3 mb-3" role="alert">
+                <?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        <?php endif; ?>
+        <?php if (isset($_SESSION['error'])): ?>
+            <div class="alert alert-danger alert-dismissible fade show rounded-3 mb-3" role="alert">
+                <?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        <?php endif; ?>
 
-    .role-card i {
-      display: block;
-      font-size: 1.6rem;
-      margin-bottom: 6px;
-      color: #475569;
-    }
+        <div class="card p-4 border-0 shadow-sm mb-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h3 class="fw-bold mb-1" style="color: #0b3d5f;">Task Board</h3>
+                    <p class="text-muted mb-0">Monitor responsibilities and update completion status.</p>
+                </div>
+                <?php if ($role === 'Organizer' || $role === 'Collector'): ?>
+                <a href="create.php" class="btn btn-primary rounded-3 px-3 py-2" style="background-color: #0b3d5f; border-color: #0b3d5f;">
+                    <i class="fas fa-plus-circle me-1"></i> Assign New Task
+                </a>
+                <?php endif; ?>
+            </div>
+        </div>
 
-    .role-card.active {
-      background: #0b3d5f;
-      color: white;
-      border-color: #f9b81b;
-      box-shadow: 0 10px 18px rgba(11, 61, 95, 0.3);
-      transform: translateY(-2px);
-    }
+        <!-- Filter Card -->
+        <div class="card p-4 border-0 shadow-sm mb-4 bg-white">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold text-secondary">Search</label>
+                    <input type="text" name="search" class="form-control rounded-3" placeholder="Task title, meeting, employee..." value="<?php echo htmlspecialchars($searchQuery); ?>">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-secondary">Status</label>
+                    <select name="status" class="form-select rounded-3">
+                        <option value="">All Statuses</option>
+                        <option value="Pending" <?php echo $statusFilter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                        <option value="In Progress" <?php echo $statusFilter === 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
+                        <option value="Completed" <?php echo $statusFilter === 'Completed' ? 'selected' : ''; ?>>Completed</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-secondary">Priority</label>
+                    <select name="priority" class="form-select rounded-3">
+                        <option value="">All Priorities</option>
+                        <option value="Low" <?php echo $priorityFilter === 'Low' ? 'selected' : ''; ?>>Low</option>
+                        <option value="Medium" <?php echo $priorityFilter === 'Medium' ? 'selected' : ''; ?>>Medium</option>
+                        <option value="High" <?php echo $priorityFilter === 'High' ? 'selected' : ''; ?>>High</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button type="submit" class="btn btn-primary rounded-3 py-2" style="background-color: #0b3d5f; border-color: #0b3d5f;">Filter</button>
+                </div>
+            </form>
+        </div>
 
-    .role-card.active i {
-      color: #f9b81b;
-    }
-
-    .role-card:hover:not(.active) {
-      background: #e2e8f0;
-    }
-
-    .input-group {
-      margin-bottom: 1.4rem;
-      position: relative;
-    }
-
-    .input-group label {
-      display: block;
-      margin-bottom: 0.4rem;
-      font-weight: 600;
-      color: #1e293b;
-      font-size: 0.9rem;
-      letter-spacing: 0.3px;
-    }
-
-    .input-field {
-      width: 100%;
-      padding: 0.9rem 1rem 0.9rem 2.8rem;
-      border: 1.5px solid #d1d5db;
-      border-radius: 14px;
-      font-size: 1rem;
-      transition: 0.2s;
-      background: white;
-      outline: none;
-    }
-
-    .input-field:focus {
-      border-color: #0b3d5f;
-      box-shadow: 0 0 0 3px rgba(11, 61, 95, 0.2);
-    }
-
-    .input-group i {
-      position: absolute;
-      left: 14px;
-      top: 42px;
-      color: #6b7280;
-      font-size: 1.1rem;
-    }
-
-    .forgot-row {
-      display: flex;
-      justify-content: flex-end;
-      margin-bottom: 1.5rem;
-    }
-
-    .forgot-link {
-      color: #0b3d5f;
-      text-decoration: none;
-      font-size: 0.9rem;
-      font-weight: 500;
-    }
-
-    .login-btn {
-      width: 100%;
-      background: #0b3d5f;
-      color: white;
-      border: none;
-      padding: 0.95rem;
-      border-radius: 30px;
-      font-weight: 700;
-      font-size: 1.1rem;
-      cursor: pointer;
-      transition: background 0.25s, transform 0.1s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      letter-spacing: 0.4px;
-      box-shadow: 0 8px 16px rgba(11, 61, 95, 0.25);
-      margin-top: 0.5rem;
-    }
-
-    .login-btn:hover {
-      background: #0f4a6b;
-      transform: scale(1.02);
-    }
-
-    .alt-action {
-      text-align: center;
-      margin-top: 1.6rem;
-      color: #4b5563;
-      font-size: 0.9rem;
-    }
-
-    .alt-action a {
-      color: #0b3d5f;
-      font-weight: 700;
-      text-decoration: none;
-      margin-left: 4px;
-    }
-
-    .district-footer-note {
-      text-align: center;
-      margin-top: 1.8rem;
-      font-size: 0.8rem;
-      color: #64748b;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-
-    @media (max-width: 480px) {
-      .login-container {
-        padding: 2rem 1.5rem;
-      }
-      .role-selector {
-        gap: 8px;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="login-container">
-    <div class="login-header">
-      <div class="emblem-circle" title="Latur Municipal Corporation"></div>
-      <h2>Latur District</h2>
-      <p><i class="fas fa-calendar-check" style="color:#f9b81b;"></i> Meeting & Task Planner</p>
+        <!-- Tasks Table -->
+        <div class="card p-4 border-0 shadow-sm bg-white">
+            <?php if (empty($tasks)): ?>
+                <div class="text-center py-5">
+                    <i class="bi bi-card-checklist fs-1 text-muted"></i>
+                    <p class="text-muted mt-2">No tasks found matching your filters.</p>
+                </div>
+            <?php else: ?>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead style="background:#eef6ff; border-top: 2px solid #0b3d5f;">
+                            <tr>
+                                <th>Task Title</th>
+                                <th>Meeting Reference</th>
+                                <th>Assigned To</th>
+                                <th>Due Date</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($tasks as $task): ?>
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-dark"><?php echo htmlspecialchars($task['title']); ?></div>
+                                        <small class="text-muted d-block"><?php echo htmlspecialchars($task['notes']); ?></small>
+                                    </td>
+                                    <td>
+                                        <a href="../meetings/view.php?id=<?php echo $task['meeting_id']; ?>" class="text-decoration-none fw-semibold">
+                                            <?php echo htmlspecialchars($task['meeting_title']); ?>
+                                        </a>
+                                        <small class="text-muted d-block">By: <?php echo htmlspecialchars($task['organizer_name']); ?></small>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold"><?php echo htmlspecialchars($task['assignee_name']); ?></div>
+                                    </td>
+                                    <td>
+                                        <?php 
+                                        $dueDate = strtotime($task['due_date']);
+                                        $isOverdue = ($dueDate < strtotime($today) && $task['status'] !== 'Completed');
+                                        ?>
+                                        <span class="<?php echo $isOverdue ? 'text-danger fw-bold' : ''; ?>">
+                                            <?php echo date('d M Y', $dueDate); ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $priority = $task['priority'];
+                                        $pClass = match($priority) {
+                                            'High' => 'danger',
+                                            'Medium' => 'warning text-dark',
+                                            'Low' => 'success',
+                                            default => 'secondary'
+                                        };
+                                        ?>
+                                        <span class="badge bg-<?php echo $pClass; ?>"><?php echo htmlspecialchars($priority); ?></span>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $status = $task['status'];
+                                        $sClass = match($status) {
+                                            'Completed' => 'success',
+                                            'In Progress' => 'info text-dark',
+                                            'Pending' => 'warning text-dark',
+                                            default => 'secondary'
+                                        };
+                                        ?>
+                                        <span class="badge bg-<?php echo $sClass; ?>"><?php echo htmlspecialchars($status); ?></span>
+                                    </td>
+                                    <td class="text-end">
+                                        <?php if ($role === 'Employee' && $task['assigned_to'] == $user_id): ?>
+                                            <!-- Employee update actions -->
+                                            <form action="../../controllers/UpdateTaskStatusController.php" method="POST" class="d-inline-block">
+                                                <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
+                                                <select name="status" class="form-select form-select-sm d-inline-block rounded-3 w-auto" onchange="this.form.submit()">
+                                                    <option value="Pending" <?php echo $status === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                                                    <option value="In Progress" <?php echo $status === 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
+                                                    <option value="Completed" <?php echo $status === 'Completed' ? 'selected' : ''; ?>>Completed</option>
+                                                </select>
+                                            </form>
+                                        <?php elseif ($role === 'Organizer' || $role === 'Collector'): ?>
+                                            <!-- Admin/Organizer update actions -->
+                                            <form action="../../controllers/UpdateTaskStatusController.php" method="POST" class="d-inline-block">
+                                                <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
+                                                <select name="status" class="form-select form-select-sm d-inline-block rounded-3 w-auto" onchange="this.form.submit()">
+                                                    <option value="Pending" <?php echo $status === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                                                    <option value="In Progress" <?php echo $status === 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
+                                                    <option value="Completed" <?php echo $status === 'Completed' ? 'selected' : ''; ?>>Completed</option>
+                                                </select>
+                                            </form>
+                                        <?php else: ?>
+                                            <span class="text-muted small">No actions available</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
     </div>
+</div>
 
-    <!-- Role Selection: Collector / Organizer / Employee -->
-    <div class="role-selector" id="roleSelector">
-      <div class="role-card active" data-role="collector">
-        <i class="fas fa-user-tie"></i>
-        <span>Collector</span>
-      </div>
-      <div class="role-card" data-role="organizer">
-        <i class="fas fa-calendar-alt"></i>
-        <span>Organizer</span>
-      </div>
-      <div class="role-card" data-role="employee">
-        <i class="fas fa-user-check"></i>
-        <span>Employee</span>
-      </div>
-    </div>
-
-    <!-- Login Form -->
-    <form id="loginForm" onsubmit="handleLogin(event)">
-      <div class="input-group">
-        <label for="username">Username / ID</label>
-        <i class="fas fa-user"></i>
-        <input type="text" id="username" class="input-field" placeholder="Enter your ID" required autocomplete="off">
-      </div>
-
-      <div class="input-group">
-        <label for="password">Password</label>
-        <i class="fas fa-lock"></i>
-        <input type="password" id="password" class="input-field" placeholder="••••••••" required>
-      </div>
-
-      <div class="forgot-row">
-        <a href="#" class="forgot-link">Forgot password?</a>
-      </div>
-
-      <button type="submit" class="login-btn" id="loginButton">
-        <i class="fas fa-sign-in-alt"></i> Sign In
-      </button>
-    </form>
-
-    <div class="alt-action">
-      Need access? <a href="#">Request account</a>
-    </div>
-    <div class="district-footer-note">
-      <i class="fas fa-map-pin" style="color:#f97316;"></i> Latur District Administration
-    </div>
-  </div>
-
-  <script>
-    // Role selection interaction
-    const roleCards = document.querySelectorAll('.role-card');
-    let selectedRole = 'collector'; // default
-
-    roleCards.forEach(card => {
-      card.addEventListener('click', function() {
-        roleCards.forEach(c => c.classList.remove('active'));
-        this.classList.add('active');
-        selectedRole = this.getAttribute('data-role');
-        
-        // Optional: update placeholder or button text based on role
-        const loginBtn = document.getElementById('loginButton');
-        const roleText = this.querySelector('span').innerText;
-        loginBtn.innerHTML = `<i class="fas fa-sign-in-alt"></i> Sign In as ${roleText}`;
-      });
-    });
-
-    // Handle login submission
-    function handleLogin(event) {
-      event.preventDefault();
-      
-      const username = document.getElementById('username').value.trim();
-      const password = document.getElementById('password').value;
-      
-      if (!username || !password) {
-        alert('Please fill in both username and password.');
-        return;
-      }
-
-      // Simulate login based on role (demo purpose)
-      console.log(`Login attempt: Role=${selectedRole}, Username=${username}`);
-      
-      // Show role-based message (in production, redirect to respective dashboard)
-      switch(selectedRole) {
-        case 'collector':
-          alert(`✅ Welcome Collector ${username}!\nRedirecting to District Admin Dashboard...`);
-          break;
-        case 'organizer':
-          alert(`📋 Welcome Organizer ${username}!\nMeeting coordination panel loading...`);
-          break;
-        case 'employee':
-          alert(`👤 Welcome Employee ${username}!\nTask planner & assignments ready.`);
-          break;
-        default: break;
-      }
-      
-      // Here you would typically redirect: window.location.href = '/dashboard';
-      // For demonstration, we reset or keep focus.
-      // Optionally clear fields (uncomment if desired):
-      // document.getElementById('password').value = '';
-    }
-
-    // Set initial button text based on default active role
-    window.addEventListener('DOMContentLoaded', () => {
-      const activeCard = document.querySelector('.role-card.active');
-      if (activeCard) {
-        const roleText = activeCard.querySelector('span').innerText;
-        document.getElementById('loginButton').innerHTML = `<i class="fas fa-sign-in-alt"></i> Sign In as ${roleText}`;
-      }
-    });
-  </script>
-</body>
-</html>
+<?php include_once '../../includes/footer.php'; ?>

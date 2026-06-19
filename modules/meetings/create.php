@@ -8,6 +8,9 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Organizer') {
     exit();
 }
 
+require_once '../../config/db.php';
+$departments = getDepartments();
+
 include_once '../../includes/header.php';
 ?>
 
@@ -51,7 +54,12 @@ include_once '../../includes/header.php';
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small fw-semibold text-secondary">Department</label>
-                            <input type="text" name="department" class="form-control rounded-3" required>
+                            <select name="department" class="form-select rounded-3" required>
+                                <option value="">Select department</option>
+                                <?php foreach ($departments as $department): ?>
+                                    <option value="<?php echo htmlspecialchars($department); ?>"><?php echo htmlspecialchars($department); ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                         <div class="col-12">
                             <label class="form-label small fw-semibold text-secondary">Agenda</label>

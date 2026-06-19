@@ -1,6 +1,13 @@
 CREATE DATABASE IF NOT EXISTS meeting_planner;
 USE meeting_planner;
 
+CREATE TABLE IF NOT EXISTS departments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  is_active ENUM('Yes','No') NOT NULL DEFAULT 'Yes',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
@@ -49,6 +56,39 @@ CREATE TABLE IF NOT EXISTS attendance (
   FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS meeting_translations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  meeting_id INT NOT NULL,
+  language_code VARCHAR(10) NOT NULL,
+  translated_agenda TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE
+);
+
+
+INSERT INTO departments (name, is_active) VALUES
+('Administration', 'Yes'),
+('Revenue', 'Yes'),
+('HR', 'Yes'),
+('Public Works', 'Yes'),
+('Health', 'Yes'),
+('Education', 'Yes'),
+('Agriculture', 'Yes'),
+('Water Supply', 'Yes'),
+('Social Welfare', 'Yes'),
+('Finance', 'Yes'),
+('Planning', 'Yes'),
+('IT & Technology', 'Yes'),
+('Law & Order', 'Yes'),
+('Transport', 'Yes'),
+('Rural Development', 'Yes'),
+('Women & Child Development', 'Yes'),
+('Disaster Management', 'Yes'),
+('Election', 'Yes'),
+('Food & Civil Supplies', 'Yes'),
+('Urban Development', 'Yes')
+ON DUPLICATE KEY UPDATE is_active=VALUES(is_active);
 
 INSERT INTO users (name, email, password, role, department, isDeleted) VALUES
 ('System Collector', 'collector@project.local', 'collector123', 'Collector', 'Administration', 'No'),

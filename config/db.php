@@ -31,6 +31,45 @@ function getDBConnection() {
     }
 }
 
+function getDefaultDepartments() {
+    return [
+        'Administration',
+        'Revenue',
+        'HR',
+        'Public Works',
+        'Health',
+        'Education',
+        'Agriculture',
+        'Water Supply',
+        'Social Welfare',
+        'Finance',
+        'Planning',
+        'IT & Technology',
+        'Law & Order',
+        'Transport',
+        'Rural Development',
+        'Women & Child Development',
+        'Disaster Management',
+        'Election',
+        'Food & Civil Supplies',
+        'Urban Development'
+    ];
+}
+
+function getDepartments() {
+    try {
+        $conn = getDBConnection();
+        $result = $conn->query("SELECT name FROM departments WHERE is_active = 'Yes' ORDER BY name ASC");
+        if ($result && $result->num_rows > 0) {
+            return array_column($result->fetch_all(MYSQLI_ASSOC), 'name');
+        }
+    } catch (Throwable $e) {
+        error_log('Department lookup failed: ' . $e->getMessage());
+    }
+
+    return getDefaultDepartments();
+}
+
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();

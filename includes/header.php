@@ -30,7 +30,9 @@ $currentLang = $_SESSION['lang'] ?? 'en';
 
     body {
       font-family: 'Segoe UI', 'Poppins', Roboto, system-ui, sans-serif;
-      background: #f4f7fc;
+      background:
+        linear-gradient(rgba(244, 247, 252, 0.82), rgba(244, 247, 252, 0.82)),
+        url('<?php echo $basePath; ?>/assets/image_e15bb67f.png') center / cover fixed no-repeat;
       display: flex;
       flex-direction: column;
       min-height: 100vh;
@@ -65,16 +67,15 @@ $currentLang = $_SESSION['lang'] ?? 'en';
     }
 
     .district-emblem {
-      background: #f9b81b;
-      color: #0b3d5f;
       width: 45px;
       height: 45px;
       border-radius: 50%;
+      background: #ffffff;
+      object-fit: cover;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.8rem;
-      font-weight: bold;
+      border: 2px solid rgba(255, 255, 255, 0.9);
       box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
     }
 
@@ -249,7 +250,7 @@ $currentLang = $_SESSION['lang'] ?? 'en';
     .main-content {
       flex: 1;
       padding: 2rem;
-      background: #f8fafd;
+      background: rgba(248, 250, 253, 0.88);
       overflow-y: auto;
     }
 
@@ -280,9 +281,7 @@ $currentLang = $_SESSION['lang'] ?? 'en';
   <!-- HEADER -->
   <header class="header">
     <div class="logo-area">
-      <div class="district-emblem">
-        <i class="fas fa-landmark"></i>
-      </div>
+      <img class="district-emblem" src="<?php echo $basePath; ?>/assets/photo_1763098684.jpg" alt="Latur Municipal Corporation logo">
       <div class="title-section">
         <h1>Latur District</h1>
         <div class="subtitle">
@@ -384,70 +383,4 @@ $currentLang = $_SESSION['lang'] ?? 'en';
     <?php endif; ?>
 
     <!-- MAIN CONTENT AREA -->
-    <main class="main-content">
-
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="<?php echo $basePath; ?>/index.php">
-                <i class="bi bi-calendar3"></i> <?php echo __('common.app_name'); ?>
-            </a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item"><a class="nav-link" href="<?php echo $basePath; ?>/index.php"><?php echo __('common.dashboard'); ?></a></li>
-                </ul>
-                <?php if ($isLoggedIn): ?>
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-                            <i class="bi bi-person-circle"></i> <?php echo htmlspecialchars($userName); ?>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="<?php echo $basePath; ?>/modules/users/profile.php"><?php echo __('common.profile'); ?></a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-danger" href="<?php echo $basePath; ?>/controllers/LogoutController.php"><?php echo __('common.logout'); ?></a></li>
-                        </ul>
-                    </li>
-                </ul>
-                <?php endif; ?>
-            </div>
-        </div>
-    </nav>
-
-    <div class="container-fluid">
-        <div class="row">
-            <?php if ($isLoggedIn): ?>
-            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse bg-white">
-                <div class="position-sticky">
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>" href="<?php echo $basePath; ?>/index.php">
-                                <i class="bi bi-grid"></i> <?php echo __('common.dashboard'); ?>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo $basePath; ?>/modules/meetings/index.php">
-                                <i class="bi bi-calendar-event"></i> <?php echo __('meetings.all'); ?>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo $basePath; ?>/modules/tasks/index.php">
-                                <i class="bi bi-list-task"></i> <?php echo __('tasks.title'); ?>
-                            </a>
-                        </li>
-                    </ul>
-                    <?php if (isAdmin()): ?>
-                    <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">Administration</h6>
-                    <ul class="nav flex-column mb-2">
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo $basePath; ?>/modules/users/index.php">
-                                <i class="bi bi-people"></i> <?php echo __('common.user_mgmt'); ?>
-                            </a>
-                        </li>
-                    </ul>
-                    <?php endif; ?>
-                </div>
-            </nav>
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
-            <?php else: ?>
-            <main class="col-12 py-4">
-            <?php endif; ?>
+    <main class="main-content <?php echo !$isLoggedIn ? 'w-100' : ''; ?>">
