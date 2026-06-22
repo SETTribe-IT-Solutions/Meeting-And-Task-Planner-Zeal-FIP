@@ -2,28 +2,130 @@
 // config/db.php
 // Database configuration file
 
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'meeting_planner');
+if (!defined('DB_HOST')) {
+    define('DB_HOST', 'localhost');
+}
+if (!defined('DB_USER')) {
+    define('DB_USER', 'root');
+}
+if (!defined('DB_PASS')) {
+    define('DB_PASS', '');
+}
+if (!defined('DB_NAME')) {
+    define('DB_NAME', 'meeting_planner');
+}
 
 // Calculate project base URL for routing
-$docRoot = str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT']);
-$currentDir = str_replace('\\', '/', dirname(__DIR__));
-define('APP_URL', rtrim(str_replace($docRoot, '', $currentDir), '/'));
+if (!defined('APP_URL')) {
+    $docRoot = str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT'] ?? '');
+    $currentDir = str_replace('\\', '/', dirname(__DIR__));
+    define('APP_URL', rtrim(str_replace($docRoot, '', $currentDir), '/'));
+}
 
-// Create database connection
+// Helper function to execute SQL statements from a file
+function _executeSqlFile($conn, $filePath) {
+    if (!file_exists($filePath)) {
+        return false;
+    }
+    
+    $sql = file_get_contents($filePath);
+    
+    // Remove single-line comments
+    $sql = preg_replace('/^[ \t]*(?:--|#).*$/m', '', $sql);
+    
+    // Remove multi-line comments
+    $sql = preg_replace('/ \/\*(.*?)\*\/ /s', '', $sql);
+    
+    // Split queries by semicolon
+    $queries = explode(';', $sql);
+    
+    foreach ($queries as $query) {
+        $query = trim($query);
+        if ($query === '') {
+            continue;
+        }
+        
+        // Skip USE queries since we manage connection/db selection in PHP
+        if (stripos($query, 'USE ') === 0) {
+            continue;
+        }
+        
+        // If it's an INSERT query, check if the table has existing records first to prevent duplicates
+        if (preg_match('/^\s*INSERT\s+INTO\s+([a-zA-Z0-9_`]+)/i', $query, $matches)) {
+            $tableName = trim($matches[1], '`');
+            
+            // Query count of table
+            $countCheck = $conn->query("SELECT COUNT(*) as cnt FROM `$tableName`");
+            if ($countCheck) {
+                $row = $countCheck->fetch_assoc();
+                if ($row && $row['cnt'] > 0) {
+                    // Table already has records, skip seed insert
+                    continue;
+                }
+            }
+        }
+        
+        if (!$conn->query($query)) {
+            error_log("Database initialization query failed: " . $conn->error . " | Query: " . $query);
+        }
+    }
+    return true;
+}
+
+// Create database connection and initialize database/tables if needed
 function getDBConnection() {
+    static $conn = null;
+    if ($conn !== null) {
+        return $conn;
+    }
+
     try {
-        $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+        // Connect to server first without selecting DB
+        $conn = new mysqli(DB_HOST, DB_USER, DB_PASS);
         
         // Check connection
         if ($conn->connect_error) {
             throw new Exception("Connection failed: " . $conn->connect_error);
         }
         
+        // Create database if not exists
+        $dbNameEscaped = "`" . str_replace("`", "``", DB_NAME) . "`";
+        if (!$conn->query("CREATE DATABASE IF NOT EXISTS $dbNameEscaped")) {
+            throw new Exception("Database creation failed: " . $conn->error);
+        }
+        
+        // Select database
+        if (!$conn->select_db(DB_NAME)) {
+            throw new Exception("Database selection failed: " . $conn->error);
+        }
+        
         // Set charset to UTF-8
         $conn->set_charset("utf8mb4");
+        
+        // Check if tables exist
+        $requiredTables = ['departments', 'users', 'meetings', 'tasks', 'attendance', 'meeting_translations'];
+        $tablesExist = true;
+        
+        $result = $conn->query("SHOW TABLES");
+        $existingTables = [];
+        if ($result) {
+            while ($row = $result->fetch_row()) {
+                $existingTables[] = strtolower($row[0]);
+            }
+        }
+        
+        foreach ($requiredTables as $table) {
+            if (!in_array($table, $existingTables)) {
+                $tablesExist = false;
+                break;
+            }
+        }
+        
+        if (!$tablesExist) {
+            // Execute schema.sql to create tables and insert seed data
+            $schemaPath = dirname(__DIR__) . '/database/schema.sql';
+            _executeSqlFile($conn, $schemaPath);
+        }
         
         return $conn;
     } catch (Exception $e) {

@@ -337,14 +337,13 @@ unset($_SESSION['error'], $_SESSION['success']);
         /* ── Main Content Area ── */
         .main-content {
             flex: 1;
-            max-width: 1200px;
+            max-width: 650px;
             margin: 0 auto;
             padding: 24px 20px;
             width: 100%;
-            display: grid;
-            grid-template-columns: 280px 1fr 280px;
+            display: flex;
+            flex-direction: column;
             gap: 20px;
-            align-items: start;
             background: rgba(238,232,213,0.72);
             border-left: 1px solid rgba(255,255,255,0.32);
             border-right: 1px solid rgba(255,255,255,0.32);
@@ -939,19 +938,8 @@ unset($_SESSION['error'], $_SESSION['success']);
         /* ── Responsive ── */
         @media (max-width: 960px) {
             .main-content {
-                grid-template-columns: 1fr;
+                max-width: 100%;
             }
-            .leaders-panel {
-                flex-direction: row;
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-            .leader-card { min-width: 140px; flex: 1; }
-            .info-panel {
-                flex-direction: row;
-                flex-wrap: wrap;
-            }
-            .info-card { flex: 1; min-width: 250px; }
         }
 
         @media (max-width: 600px) {
@@ -1057,24 +1045,6 @@ unset($_SESSION['error'], $_SESSION['success']);
     <!-- ══════ MAIN CONTENT ══════ -->
     <div class="main-content" id="main-content">
 
-        <!-- ── Left Panel: Leaders ── -->
-        <aside class="leaders-panel">
-            <div class="leader-card">
-                <div class="photo-frame"><i class="bi bi-person-fill"></i></div>
-                <div class="leader-name">Hon. Prime Minister</div>
-                <div class="leader-role">Shri Narendra Modi<br>Prime Minister of India</div>
-            </div>
-            <div class="leader-card">
-                <div class="photo-frame"><i class="bi bi-person-fill"></i></div>
-                <div class="leader-name">Hon. Chief Minister</div>
-                <div class="leader-role">Shri Devendra Fadnavis<br>Chief Minister, Maharashtra</div>
-            </div>
-            <div class="leader-card">
-                <div class="photo-frame"><i class="bi bi-person-fill"></i></div>
-                <div class="leader-name">District Collector</div>
-                <div class="leader-role">Collector & District Magistrate<br>Latur District</div>
-            </div>
-        </aside>
 
         <!-- ── Center Panel: Login Form ── -->
         <main class="login-panel">
@@ -1210,57 +1180,7 @@ unset($_SESSION['error'], $_SESSION['success']);
             </div>
         </main>
 
-        <!-- ── Right Panel: Quick Links & Info ── -->
-        <aside class="info-panel">
-            <div class="info-card">
-                <div class="info-card-header"><i class="bi bi-link-45deg"></i> Important Links</div>
-                <div class="info-card-body">
-                    <ul class="quick-link-list">
-                        <li><a href="https://latur.gov.in" target="_blank"><i class="bi bi-caret-right-fill"></i> District Latur Official Website</a></li>
-                        <li><a href="https://maharashtra.gov.in" target="_blank"><i class="bi bi-caret-right-fill"></i> Govt. of Maharashtra</a></li>
-                        <li><a href="https://india.gov.in" target="_blank"><i class="bi bi-caret-right-fill"></i> National Portal of India</a></li>
-                        <li><a href="https://rtionline.gov.in" target="_blank"><i class="bi bi-caret-right-fill"></i> RTI Online Portal</a></li>
-                        <li><a href="https://pgportal.gov.in" target="_blank"><i class="bi bi-caret-right-fill"></i> Public Grievances</a></li>
-                        <li><a href="#"><i class="bi bi-caret-right-fill"></i> Meeting Guidelines</a></li>
-                    </ul>
-                </div>
-            </div>
 
-            <div class="info-card">
-                <div class="info-card-header"><i class="bi bi-telephone-fill"></i> Contact Helpdesk</div>
-                <div class="info-card-body">
-                    <div class="contact-item">
-                        <i class="bi bi-geo-alt-fill"></i>
-                        <div><strong>Address:</strong><br>Collector Office, Station Road,<br>Latur – 413512, Maharashtra</div>
-                    </div>
-                    <div class="contact-item">
-                        <i class="bi bi-telephone-fill"></i>
-                        <div><strong>Phone:</strong><br>+91-2382-252200</div>
-                    </div>
-                    <div class="contact-item">
-                        <i class="bi bi-envelope-fill"></i>
-                        <div><strong>Email:</strong><br>collector-latur@maharashtra.gov.in</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="info-card">
-                <div class="info-card-header"><i class="bi bi-eye-fill"></i> Visitor Count</div>
-                <div class="info-card-body">
-                    <div class="visitor-counter">
-                        <div>Total Visitors</div>
-                        <div class="count-digits" id="visitorDigits">
-                            <span class="digit">0</span>
-                            <span class="digit">1</span>
-                            <span class="digit">2</span>
-                            <span class="digit">4</span>
-                            <span class="digit">5</span>
-                            <span class="digit">8</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </aside>
     </div>
 
     <!-- ══════ FOOTER ══════ -->
@@ -1507,22 +1427,7 @@ unset($_SESSION['error'], $_SESSION['success']);
             });
         });
 
-        // ── Visitor Counter Animation ──
-        const digits = document.querySelectorAll('#visitorDigits .digit');
-        const finalDigits = ['0', '1', '2', '4', '5', '8'];
-        digits.forEach((d, i) => {
-            setTimeout(() => {
-                let count = 0;
-                const interval = setInterval(() => {
-                    d.textContent = Math.floor(Math.random() * 10);
-                    count++;
-                    if (count > 10) {
-                        clearInterval(interval);
-                        d.textContent = finalDigits[i];
-                    }
-                }, 50);
-            }, i * 100);
-        });
+
     });
     </script>
 </body>
