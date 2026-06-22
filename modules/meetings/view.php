@@ -74,8 +74,8 @@ $tasks = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 // 5. Fetch non-attendee users for the invitation dropdown (Organizer/Collector only)
 $nonAttendees = [];
 if (isOrganizer()) {
-    $stmt = $conn->prepare("SELECT id, name, email FROM users WHERE isDeleted = 'No' AND id NOT IN (SELECT user_id FROM attendance WHERE meeting_id = ?)");
-    $stmt->bind_param("i", $meetingId);
+    $stmt = $conn->prepare("SELECT id, name, email FROM users WHERE role = 'Employee' AND department = ? AND isDeleted = 'No' AND id NOT IN (SELECT user_id FROM attendance WHERE meeting_id = ?) ORDER BY name ASC");
+    $stmt->bind_param("si", $meeting['department'], $meetingId);
     $stmt->execute();
     $nonAttendees = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }

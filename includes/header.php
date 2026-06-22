@@ -360,11 +360,17 @@ $currentLang = $_SESSION['lang'] ?? 'en';
             <span>Reports</span>
           </a>
         </li>
-        <?php if (isAdmin()): ?>
+        <?php if (isOrganizer()): ?>
         <li class="nav-item">
           <a href="<?php echo $basePath; ?>/modules/users/index.php" class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'users/index') !== false ? 'active' : ''; ?>">
-            <i class="fas fa-user-shield"></i>
-            <span>Administration</span>
+            <i class="fas fa-user-cog"></i>
+            <span>Users</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="<?php echo $basePath; ?>/modules/departments/index.php" class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'departments') !== false ? 'active' : ''; ?>">
+            <i class="fas fa-building"></i>
+            <span>Departments</span>
           </a>
         </li>
         <?php endif; ?>
