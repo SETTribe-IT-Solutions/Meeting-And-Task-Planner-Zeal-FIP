@@ -55,6 +55,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $userId = isset($_POST['user_id']) ? (int)$_POST['user_id'] : 0;
         
         if ($meetingId && $userId) {
+            $stmt = $conn->prepare("SELECT m.department FROM meetings m WHERE m.id = ? LIMIT 1");
+            $stmt->bind_param("i", $meetingId);
+            $stmt->execute();
+            $meeting = $stmt->get_result()->fetch_assoc();
+
+            if (!$meeting) {
+                $_SESSION['error'] = 'Meeting not found.';
+                header("Location: ../modules/meetings/view.php?id=" . $meetingId);
+                exit();
+            }
+
+            $stmt = $conn->prepare("SELECT id FROM users WHERE id = ? AND role = 'Employee' AND department = ? AND isDeleted = 'No' LIMIT 1");
+            $stmt->bind_param("is", $userId, $meeting['department']);
+            $stmt->execute();
+            $validEmployee = $stmt->get_result();
+
+            if ($validEmployee->num_rows === 0) {
+                $_SESSION['error'] = 'Please select an employee from this meeting department.';
+                header("Location: ../modules/meetings/view.php?id=" . $meetingId);
+                exit();
+            }
+
             // Check if already registered
             $stmt = $conn->prepare("SELECT id FROM attendance WHERE meeting_id = ? AND user_id = ?");
             $stmt->bind_param("ii", $meetingId, $userId);

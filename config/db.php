@@ -126,6 +126,8 @@ function getDBConnection() {
             $schemaPath = dirname(__DIR__) . '/database/schema.sql';
             _executeSqlFile($conn, $schemaPath);
         }
+
+        ensureDepartmentStructure($conn);
         
         return $conn;
     } catch (Exception $e) {
@@ -133,29 +135,42 @@ function getDBConnection() {
     }
 }
 
-function getDefaultDepartments() {
+function getDefaultDepartmentRecords() {
     return [
-        'Administration',
-        'Revenue',
-        'HR',
-        'Public Works',
-        'Health',
-        'Education',
-        'Agriculture',
-        'Water Supply',
-        'Social Welfare',
-        'Finance',
-        'Planning',
-        'IT & Technology',
-        'Law & Order',
-        'Transport',
-        'Rural Development',
-        'Women & Child Development',
-        'Disaster Management',
-        'Election',
-        'Food & Civil Supplies',
-        'Urban Development'
+        ['Administration', 'General administration and coordination.'],
+        ['Law & Order', 'Public safety, legal coordination, and order management.'],
+        ['Revenue', 'Revenue administration and land records.'],
+        ['Health', 'Public health services and medical coordination.'],
+        ['Education', 'Education planning and institutional coordination.'],
+        ['Agriculture', 'Agriculture services and farmer support.'],
+        ['Finance', 'Financial planning, budget, and accounts.'],
+        ['IT Department', 'Information technology services and digital systems.'],
+        ['Rural Development', 'Rural development projects and schemes.'],
+        ['Public Works Department', 'Public infrastructure and works management.']
     ];
+}
+
+function getDefaultDepartments() {
+    return array_column(getDefaultDepartmentRecords(), 0);
+}
+
+function ensureDepartmentStructure($conn) {
+    $columnCheck = $conn->query("SHOW COLUMNS FROM departments LIKE 'description'");
+    if ($columnCheck && $columnCheck->num_rows === 0) {
+        $conn->query("ALTER TABLE departments ADD COLUMN description TEXT NULL AFTER name");
+    }
+
+    $stmt = $conn->prepare(
+        "INSERT INTO departments (name, description, is_active) VALUES (?, ?, 'Yes')
+         ON DUPLICATE KEY UPDATE description = COALESCE(description, VALUES(description))"
+    );
+
+    if ($stmt) {
+        foreach (getDefaultDepartmentRecords() as $department) {
+            $stmt->bind_param("ss", $department[0], $department[1]);
+            $stmt->execute();
+        }
+    }
 }
 
 function getDepartments() {
