@@ -43,9 +43,13 @@ include_once '../../includes/header.php';
                             <label class="form-label small fw-semibold text-secondary">Time</label>
                             <input type="time" name="meeting_time" class="form-control rounded-3" required>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6" id="location-field" style="display: none;">
                             <label class="form-label small fw-semibold text-secondary">Location</label>
-                            <input type="text" name="location" class="form-control rounded-3" required>
+                            <input type="text" name="location" id="locationInput" class="form-control rounded-3">
+                        </div>
+                        <div class="col-md-6" id="meeting-url-field">
+                            <label class="form-label small fw-semibold text-secondary">Meeting URL</label>
+                            <input type="url" name="meeting_url" id="meetingUrlInput" class="form-control rounded-3" placeholder="https://" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small fw-semibold text-secondary">Mode</label>
@@ -82,7 +86,7 @@ include_once '../../includes/header.php';
                         </div>
                     </div>
                     <div class="mt-4 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary rounded-3" style="background-color: var(--gov-blue);">Save Meeting</button>
+                        <button type="submit" class="btn btn-primary rounded-3" >Save Meeting</button>
                         <a href="../../index.php" class="btn btn-outline-secondary rounded-3">Cancel</a>
                     </div>
                 </form>
@@ -95,6 +99,11 @@ include_once '../../includes/header.php';
 document.addEventListener('DOMContentLoaded', function() {
     const allUsers = <?php echo json_encode($all_users, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
     const departmentSelect = document.querySelector('select[name="department"]');
+    const modeSelect = document.querySelector('select[name="mode"]');
+    const locationField = document.getElementById('location-field');
+    const meetingUrlField = document.getElementById('meeting-url-field');
+    const locationInput = document.getElementById('locationInput');
+    const meetingUrlInput = document.getElementById('meetingUrlInput');
     const addAttendeesBtn = document.getElementById('add-attendees-btn');
     const employeesSection = document.getElementById('employees-section');
     const employeesList = document.getElementById('employees-list');
@@ -103,6 +112,37 @@ document.addEventListener('DOMContentLoaded', function() {
         addAttendeesBtn.disabled = !this.value;
         renderDepartmentEmployees();
     });
+
+    // Toggle location / meeting URL based on selected mode
+    function updateModeFields() {
+        if (!modeSelect) return;
+        const mode = modeSelect.value;
+        if (mode === 'Offline') {
+            // show location, hide URL
+            if (locationField) locationField.style.display = '';
+            if (meetingUrlField) meetingUrlField.style.display = 'none';
+            if (locationInput) locationInput.required = true;
+            if (meetingUrlInput) meetingUrlInput.required = false;
+        } else if (mode === 'Hybrid') {
+            // show both; neither strictly required so user can provide either or both
+            if (locationField) locationField.style.display = '';
+            if (meetingUrlField) meetingUrlField.style.display = '';
+            if (locationInput) locationInput.required = false;
+            if (meetingUrlInput) meetingUrlInput.required = false;
+        } else {
+            // show URL (default), hide location
+            if (locationField) locationField.style.display = 'none';
+            if (meetingUrlField) meetingUrlField.style.display = '';
+            if (locationInput) locationInput.required = false;
+            if (meetingUrlInput) meetingUrlInput.required = true;
+        }
+    }
+
+    if (modeSelect) {
+        modeSelect.addEventListener('change', updateModeFields);
+        // set initial state
+        updateModeFields();
+    }
 
     addAttendeesBtn.addEventListener('click', function() {
         renderDepartmentEmployees();

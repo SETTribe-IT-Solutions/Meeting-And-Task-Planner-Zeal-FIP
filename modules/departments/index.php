@@ -95,7 +95,7 @@ include_once '../../includes/header.php';
                 </div>
 
                 <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-primary rounded-3 flex-grow-1" style="background-color: var(--gov-blue);">
+                    <button type="submit" class="btn btn-primary rounded-3 flex-grow-1" >
                         <i class="fas fa-save me-1"></i> <?php echo $editDepartment ? 'Update' : 'Add'; ?> Department
                     </button>
                     <?php if ($editDepartment): ?>

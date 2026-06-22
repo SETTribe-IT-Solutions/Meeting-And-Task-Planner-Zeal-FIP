@@ -27,25 +27,13 @@ class AuthController {
         // ── 2. Collect & Sanitize ──
         $email    = strtolower(trim($_POST['email'] ?? ''));
         $password = $_POST['password'] ?? '';
-        $role     = trim($_POST['role'] ?? '');
 
         // Preserve old values for repopulation
         $_SESSION['old_email'] = $email;
-        $_SESSION['old_role']  = $role;
 
         // ── 3. Validation ──
-        // Role validation
-        if (empty($role)) {
-            $_SESSION['error'] = 'Please select your login role.';
-            header('Location: ../modules/users/login.php');
-            exit();
-        }
-
-        if (!in_array($role, self::$VALID_ROLES, true)) {
-            $_SESSION['error'] = 'Invalid role selected.';
-            header('Location: ../modules/users/login.php');
-            exit();
-        }
+        // Note: Role selection removed from login form. Role will be determined
+        // from the user's record in the database after successful authentication.
 
         // Email validation
         if (empty($email)) {
@@ -106,12 +94,7 @@ class AuthController {
                 exit();
             }
 
-            // Verify role matches
-            if (strcasecmp($user['role'], $role) !== 0) {
-                $_SESSION['error'] = 'Selected role does not match your registered account role.';
-                header('Location: ../modules/users/login.php');
-                exit();
-            }
+            // Role will be taken from the database record; no separate role selection required.
 
             // Verify password (support both legacy plain text demo passwords and bcrypt hashed)
             $isValidPlainPassword = (
