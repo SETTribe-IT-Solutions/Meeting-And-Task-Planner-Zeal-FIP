@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" role="img" aria-label="Stylized Latur district map">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1">
+      <stop offset="0%" stop-color="#eef8f4"/>
+      <stop offset="100%" stop-color="#d8efe3"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="520" fill="url(#bg)"/>
+  <path d="M120 120 L260 90 L420 110 L520 170 L470 290 L340 340 L200 310 L90 220 Z" fill="#c8e7d3" stroke="#2a7d52" stroke-width="6"/>
+  <path d="M260 90 L360 110 L410 190 L350 250 L250 230 L210 150 Z" fill="#9bd3b0"/>
+  <path d="M380 210 L520 170 L620 220 L600 330 L470 340 L400 280 Z" fill="#8bc9a6"/>
+  <path d="M170 310 L310 340 L380 420 L260 470 L130 420 Z" fill="#b6dfc7"/>
+
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#0f5132">
+    <text x="210" y="170">Latur City</text>
+    <text x="365" y="205">Ausa</text>
+    <text x="505" y="250">Udgir</text>
+    <text x="210" y="360">Nilanga</text>
+    <text x="430" y="390">Ahmedpur</text>
+    <text x="585" y="320">Renapur</text>
+  </g>
+
+  <g>
+    <circle cx="210" cy="165" r="10" fill="#0d6efd"/>
+    <circle cx="365" cy="195" r="10" fill="#0d6efd"/>
+    <circle cx="505" cy="240" r="10" fill="#0d6efd"/>
+    <circle cx="210" cy="350" r="10" fill="#0d6efd"/>
+    <circle cx="430" cy="380" r="10" fill="#0d6efd"/>
+    <circle cx="585" cy="310" r="10" fill="#0d6efd"/>
+  </g>
+</svg>
