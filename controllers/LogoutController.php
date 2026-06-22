@@ -1,21 +1,15 @@
 <?php
 // controllers/LogoutController.php
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/AuthController.php';
 
-// Wipe out session variables completely
-$_SESSION = array();
+// Initialize auth controller
+$auth = new AuthController();
 
-if (ini_get("session.use_cookies")) {
-    $params = session_get_cookie_params();
-    setcookie(session_name(), '', time() - 42000,
-        $params["path"], $params["domain"],
-        $params["secure"], $params["httponly"]
-    );
-}
+// Process logout
+$result = $auth->logout();
 
-session_destroy();
-
-// Send back to the user login interface view
-header("Location: ../modules/users/login.php");
+// Redirect to login page
+header('Location: ../modules/users/login.php');
 exit();
 ?>

@@ -1,73 +1,183 @@
 <?php
 // controllers/AuthController.php
+// Handles user authentication with comprehensive server-side validation
 
-// 1. Initialize the session container safely
-if (session_status() === PHP_SESSION_NONE) { 
-    session_start(); 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
-// 2. Import database layer using an absolute directory reference mapping
 require_once __DIR__ . '/../config/db.php';
 
-// 3. Ensure the context was triggered securely via POST method execution
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+class AuthController {
+
+    private static $VALID_ROLES = ['Collector', 'Organizer', 'Employee'];
     
-    // 4. Extract and sanitize values to enforce backend input validation constraints
-    $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
-    $password = trim($_POST['password']);
-
-    // Check if fields are empty
-    if (empty($email) || empty($password)) {
-        $_SESSION['error'] = "Please fill in all mandatory credentials.";
-        header("Location: ../modules/users/login.php");
-        exit();
-    }
-
-    try {
-        // 5. Query user registry by checking Audit standards constraint logic (isDeleted='No')
-        $sql = "SELECT id, name, password, role, department 
-                FROM users 
-                WHERE email = :email AND isDeleted = 'No' 
-                LIMIT 1";
-                
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute(['email' => $email]);
-        $user = $stmt->fetch();
-
-        // 6. Perform validation check (including a direct plain-text match fallback for testing)
-        if ($user && ($password === 'admin123' || $password === 'employee123' || password_verify($password, $user['password']))) {
-            
-            // Defend against session fixation vulnerabilities
-            session_regenerate_id(true);
-
-            // 7. Store user configuration details in global session space
-            $_SESSION['user_id']    = $user['id'];
-            $_SESSION['user_name']  = $user['name'];
-            $_SESSION['role']       = $user['role'];       // 'Collector', 'Organizer', 'Employee'
-            $_SESSION['department'] = $user['department']; // Used for filtering meetings/tasks
-
-            // 8. Success: Forward request router directly out to root entry gate
-            header("Location: ../index.php");
-            exit();
-
-        } else {
-            // Context Mismatch: Set error flash response parameter
-            $_SESSION['error'] = "Invalid email address or password confirmation mismatch.";
-            header("Location: ../modules/users/login.php");
+    /**
+     * Handle login with full validation
+     */
+    public function login() {
+        // ── 1. CSRF Token Validation ──
+        $submitted_token = trim($_POST['csrf_token'] ?? '');
+        if (empty($submitted_token) || !hash_equals($_SESSION['csrf_token'] ?? '', $submitted_token)) {
+            $_SESSION['error'] = 'Invalid security token. Please refresh the page and try again.';
+            header('Location: ../modules/users/login.php');
             exit();
         }
 
-    } catch (PDOException $e) {
-        // Write details safely to internal server error logs
-        error_log("Secure Login Error Trace: " . $e->getMessage());
-        
-        $_SESSION['error'] = "A critical system error occurred. Please contact network administrator.";
-        header("Location: ../modules/users/login.php");
-        exit();
+        // ── 2. Collect & Sanitize ──
+        $email    = strtolower(trim($_POST['email'] ?? ''));
+        $password = $_POST['password'] ?? '';
+        $role     = trim($_POST['role'] ?? '');
+
+        // Preserve old values for repopulation
+        $_SESSION['old_email'] = $email;
+        $_SESSION['old_role']  = $role;
+
+        // ── 3. Validation ──
+        // Role validation
+        if (empty($role)) {
+            $_SESSION['error'] = 'Please select your login role.';
+            header('Location: ../modules/users/login.php');
+            exit();
+        }
+
+        if (!in_array($role, self::$VALID_ROLES, true)) {
+            $_SESSION['error'] = 'Invalid role selected.';
+            header('Location: ../modules/users/login.php');
+            exit();
+        }
+
+        // Email validation
+        if (empty($email)) {
+            $_SESSION['error'] = 'Email address is required.';
+            header('Location: ../modules/users/login.php');
+            exit();
+        }
+
+        if (mb_strlen($email) > 150) {
+            $_SESSION['error'] = 'Email must not exceed 150 characters.';
+            header('Location: ../modules/users/login.php');
+            exit();
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $_SESSION['error'] = 'Please enter a valid email address.';
+            header('Location: ../modules/users/login.php');
+            exit();
+        }
+
+        // Password validation
+        if (empty($password)) {
+            $_SESSION['error'] = 'Password is required.';
+            header('Location: ../modules/users/login.php');
+            exit();
+        }
+
+        if (strlen($password) < 6) {
+            $_SESSION['error'] = 'Password must be at least 6 characters.';
+            header('Location: ../modules/users/login.php');
+            exit();
+        }
+
+        if (strlen($password) > 64) {
+            $_SESSION['error'] = 'Password must not exceed 64 characters.';
+            header('Location: ../modules/users/login.php');
+            exit();
+        }
+
+        // ── 4. Database Lookup ──
+        try {
+            $conn = getDBConnection();
+            $stmt = $conn->prepare(
+                "SELECT id, name, password, role, department 
+                 FROM users 
+                 WHERE email = ? AND isDeleted = 'No' 
+                 LIMIT 1"
+            );
+            $stmt->bind_param("s", $email);
+            $stmt->execute();
+            $user = $stmt->get_result()->fetch_assoc();
+
+            // ── 5. Credential Verification ──
+            // Check if user exists
+            if (!$user) {
+                $_SESSION['error'] = 'No account found with this email address.';
+                header('Location: ../modules/users/login.php');
+                exit();
+            }
+
+            // Verify role matches
+            if (strcasecmp($user['role'], $role) !== 0) {
+                $_SESSION['error'] = 'Selected role does not match your registered account role.';
+                header('Location: ../modules/users/login.php');
+                exit();
+            }
+
+            // Verify password (support both legacy plain text demo passwords and bcrypt hashed)
+            $isValidPlainPassword = (
+                ($password === 'admin123' && $email === 'organizer@project.local') || 
+                ($password === 'employee123' && $email === 'employee@project.local') || 
+                ($password === 'collector123' && $email === 'collector@project.local')
+            );
+
+            if (!$isValidPlainPassword && !password_verify($password, $user['password'])) {
+                $_SESSION['error'] = 'Incorrect password. Please try again.';
+                header('Location: ../modules/users/login.php');
+                exit();
+            }
+
+            // ── 6. Successful Login ──
+            // Clear old values
+            unset($_SESSION['old_email'], $_SESSION['old_role']);
+
+            // Regenerate session ID to prevent session fixation attacks
+            session_regenerate_id(true);
+
+            $_SESSION['user_id']    = $user['id'];
+            $_SESSION['full_name']  = $user['name'];
+            $_SESSION['role']       = $user['role'];
+            $_SESSION['department'] = $user['department'];
+
+            // Regenerate CSRF token
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+
+            header('Location: ../index.php');
+            exit();
+
+        } catch (Exception $e) {
+            $_SESSION['error'] = 'Login failed due to a system error. Please try again.';
+            error_log('Login Error: ' . $e->getMessage());
+            header('Location: ../modules/users/login.php');
+            exit();
+        }
     }
 
-} else {
-    // Intercept direct browser URL attempts: Force redirect back to login page
-    header("Location: ../modules/users/login.php");
-    exit();
+    /**
+     * Get user by ID
+     */
+    public function getUserById($id) {
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        return $stmt->get_result()->fetch_assoc();
+    }
+
+    /**
+     * Handle logout
+     */
+    public function logout() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $_SESSION = array();
+        session_destroy();
+        return true;
+    }
+}
+
+// Trigger login if POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $auth = new AuthController();
+    $auth->login();
 }
