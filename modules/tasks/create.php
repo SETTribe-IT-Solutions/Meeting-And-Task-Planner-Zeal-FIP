@@ -73,7 +73,7 @@ $users = $userRes->fetch_all(MYSQLI_ASSOC);
                         </div>
                     </div>
                     <div class="mt-4 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary rounded-3" style="background-color: var(--gov-blue);">Save Task</button>
+                        <button type="submit" class="btn btn-primary rounded-3" >Save Task</button>
                         <a href="../../index.php" class="btn btn-outline-secondary rounded-3">Cancel</a>
                     </div>
                 </form>

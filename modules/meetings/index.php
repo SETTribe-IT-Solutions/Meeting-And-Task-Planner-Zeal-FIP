@@ -18,7 +18,13 @@ $result = $conn->query(
      JOIN users u ON m.organizer_id = u.id
      ORDER BY m.meeting_date DESC, m.meeting_time DESC"
 );
-$meetings = $result->fetch_all(MYSQLI_ASSOC);
+
+if ($result) {
+    $meetings = $result->fetch_all(MYSQLI_ASSOC);
+} else {
+    error_log('Meetings query failed: ' . $conn->error);
+    $meetings = [];
+}
 ?>
 <div class="row">
     <div class="col-12">
@@ -28,7 +34,7 @@ $meetings = $result->fetch_all(MYSQLI_ASSOC);
                     <h3 class="fw-bold mb-1">Meeting List</h3>
                     <p class="text-muted mb-0">Official meetings scheduled for departments and teams.</p>
                 </div>
-                <a href="create.php" class="btn btn-primary rounded-3" style="background-color: var(--gov-blue);">+ Schedule Meeting</a>
+                <a href="create.php" class="btn btn-primary rounded-3" >+ Schedule Meeting</a>
             </div>
         </div>
 

@@ -17,7 +17,7 @@ $conn = getDBConnection();
 // Get statistics based on roles
 $user_id = $_SESSION['user_id'];
 $role = $_SESSION['role'];
-$department = $_SESSION['department'];
+$department = $_SESSION['department'] ?? '';
 $today = date('Y-m-d');
 
 if ($role === 'Collector') {
@@ -38,9 +38,15 @@ if ($role === 'Collector') {
                       ORDER BY m.meeting_date ASC, m.meeting_time ASC 
                       LIMIT 5";
     $stmt = $conn->prepare($upcoming_query);
-    $stmt->bind_param("s", $today);
-    $stmt->execute();
-    $upcoming = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if ($stmt) {
+        $stmt->bind_param("s", $today);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $upcoming = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    } else {
+        error_log('Prepare failed (collector upcoming): ' . $conn->error . ' | Query: ' . $upcoming_query);
+        $upcoming = [];
+    }
 
     $tasks_query = "SELECT t.*, u.name as assignee_name, m.title as meeting_title 
                     FROM tasks t 
@@ -53,19 +59,37 @@ if ($role === 'Collector') {
 } elseif ($role === 'Organizer') {
     // Organizer sees their organized meetings and tasks assigned under them
     $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE organizer_id = ?");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $meetings_organized = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+    if ($stmt) {
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $meetings_organized = $res ? ($res->fetch_assoc()['total'] ?? 0) : 0;
+    } else {
+        error_log('Prepare failed (organizer meetings_organized): ' . $conn->error);
+        $meetings_organized = 0;
+    }
     
     $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE organizer_id = ? AND meeting_date >= ? AND status != 'Cancelled'");
-    $stmt->bind_param("is", $user_id, $today);
-    $stmt->execute();
-    $upcoming_meetings = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+    if ($stmt) {
+        $stmt->bind_param("is", $user_id, $today);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $upcoming_meetings = $res ? ($res->fetch_assoc()['total'] ?? 0) : 0;
+    } else {
+        error_log('Prepare failed (organizer upcoming_meetings): ' . $conn->error);
+        $upcoming_meetings = 0;
+    }
     
     $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks t JOIN meetings m ON t.meeting_id = m.id WHERE m.organizer_id = ? AND t.status IN ('Pending', 'In Progress')");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $pending_tasks = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+    if ($stmt) {
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $pending_tasks = $res ? ($res->fetch_assoc()['total'] ?? 0) : 0;
+    } else {
+        error_log('Prepare failed (organizer pending_tasks): ' . $conn->error);
+        $pending_tasks = 0;
+    }
     
     $stmt = $conn->prepare("SELECT m.*, u.name as organizer_name 
                             FROM meetings m 
@@ -73,9 +97,15 @@ if ($role === 'Collector') {
                             WHERE m.organizer_id = ? AND m.meeting_date >= ? AND m.status != 'Cancelled' 
                             ORDER BY m.meeting_date ASC, m.meeting_time ASC 
                             LIMIT 5");
-    $stmt->bind_param("is", $user_id, $today);
-    $stmt->execute();
-    $upcoming = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if ($stmt) {
+        $stmt->bind_param("is", $user_id, $today);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $upcoming = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    } else {
+        error_log('Prepare failed (organizer upcoming list): ' . $conn->error);
+        $upcoming = [];
+    }
 
     $stmt = $conn->prepare("SELECT t.*, u.name as assignee_name, m.title as meeting_title 
                             FROM tasks t 
@@ -84,25 +114,49 @@ if ($role === 'Collector') {
                             WHERE m.organizer_id = ? AND t.status IN ('Pending', 'In Progress') 
                             ORDER BY t.due_date ASC 
                             LIMIT 5");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $active_tasks = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if ($stmt) {
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $active_tasks = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    } else {
+        error_log('Prepare failed (organizer active_tasks): ' . $conn->error);
+        $active_tasks = [];
+    }
 } else {
     // Employee sees meetings in their department / invited to, and tasks assigned to them
     $stmt = $conn->prepare("SELECT COUNT(DISTINCT m.id) as total FROM meetings m LEFT JOIN attendance a ON m.id = a.meeting_id WHERE m.department = ? OR a.user_id = ?");
-    $stmt->bind_param("si", $department, $user_id);
-    $stmt->execute();
-    $meetings_organized = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+    if ($stmt) {
+        $stmt->bind_param("si", $department, $user_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $meetings_organized = $res ? ($res->fetch_assoc()['total'] ?? 0) : 0;
+    } else {
+        error_log('Prepare failed (employee meetings_organized): ' . $conn->error);
+        $meetings_organized = 0;
+    }
 
     $stmt = $conn->prepare("SELECT COUNT(DISTINCT m.id) as total FROM meetings m LEFT JOIN attendance a ON m.id = a.meeting_id WHERE (m.department = ? OR a.user_id = ?) AND m.meeting_date >= ? AND m.status != 'Cancelled'");
-    $stmt->bind_param("sis", $department, $user_id, $today);
-    $stmt->execute();
-    $upcoming_meetings = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+    if ($stmt) {
+        $stmt->bind_param("sis", $department, $user_id, $today);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $upcoming_meetings = $res ? ($res->fetch_assoc()['total'] ?? 0) : 0;
+    } else {
+        error_log('Prepare failed (employee upcoming_meetings): ' . $conn->error);
+        $upcoming_meetings = 0;
+    }
 
     $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks WHERE assigned_to = ? AND status IN ('Pending', 'In Progress')");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $pending_tasks = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+    if ($stmt) {
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $pending_tasks = $res ? ($res->fetch_assoc()['total'] ?? 0) : 0;
+    } else {
+        error_log('Prepare failed (employee pending_tasks): ' . $conn->error);
+        $pending_tasks = 0;
+    }
 
     $stmt = $conn->prepare("SELECT DISTINCT m.*, u.name as organizer_name 
                             FROM meetings m 
@@ -111,9 +165,15 @@ if ($role === 'Collector') {
                             WHERE (m.department = ? OR a.user_id = ?) AND m.meeting_date >= ? AND m.status != 'Cancelled' 
                             ORDER BY m.meeting_date ASC, m.meeting_time ASC 
                             LIMIT 5");
-    $stmt->bind_param("sis", $department, $user_id, $today);
-    $stmt->execute();
-    $upcoming = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if ($stmt) {
+        $stmt->bind_param("sis", $department, $user_id, $today);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $upcoming = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    } else {
+        error_log('Prepare failed (employee upcoming list): ' . $conn->error);
+        $upcoming = [];
+    }
 
     $stmt = $conn->prepare("SELECT t.*, u.name as assignee_name, m.title as meeting_title 
                             FROM tasks t 
@@ -122,9 +182,15 @@ if ($role === 'Collector') {
                             WHERE t.assigned_to = ? AND t.status IN ('Pending', 'In Progress') 
                             ORDER BY t.due_date ASC 
                             LIMIT 5");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $active_tasks = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if ($stmt) {
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $active_tasks = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    } else {
+        error_log('Prepare failed (employee active_tasks): ' . $conn->error);
+        $active_tasks = [];
+    }
 }
 
 include __DIR__ . '/includes/header.php';

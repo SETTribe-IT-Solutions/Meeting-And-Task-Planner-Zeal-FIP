@@ -17,8 +17,7 @@ $csrf_token = $_SESSION['csrf_token'];
 
 // Preserved values after failed login
 $old_email = htmlspecialchars($_SESSION['old_email'] ?? '');
-$old_role  = htmlspecialchars($_SESSION['old_role'] ?? '');
-unset($_SESSION['old_email'], $_SESSION['old_role']);
+unset($_SESSION['old_email']);
 
 // Error / Success messages
 $error   = $_SESSION['error'] ?? '';
@@ -1081,22 +1080,6 @@ unset($_SESSION['error'], $_SESSION['success']);
                         <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                         <input type="hidden" name="action" value="login">
 
-                        <!-- Role Dropdown -->
-                        <div class="gov-field">
-                            <label for="login-role">Login As <span class="req">*</span></label>
-                            <div class="gov-input-wrap">
-                                <i class="bi bi-person-badge field-icon"></i>
-                                <select name="role" id="login-role" required>
-                                    <option value="" disabled <?php echo empty($old_role) ? 'selected' : ''; ?>>-- Select Your Role --</option>
-                                    <option value="Collector" <?php echo $old_role === 'Collector' ? 'selected' : ''; ?>>🏛️ Collector (District Head)</option>
-                                    <option value="Organizer" <?php echo $old_role === 'Organizer' ? 'selected' : ''; ?>>📋 Organizer (Meeting Coordinator)</option>
-                                    <option value="Employee" <?php echo $old_role === 'Employee' ? 'selected' : ''; ?>>👤 Employee (Staff Member)</option>
-                                </select>
-                            </div>
-                            <div class="field-feedback error" id="role-error"><i class="bi bi-x-circle-fill"></i> <span>Please select your role</span></div>
-                            <div class="field-feedback success" id="role-success"><i class="bi bi-check-circle-fill"></i> <span>Role selected</span></div>
-                        </div>
-
                         <!-- Email -->
                         <div class="gov-field">
                             <label for="login-email">Official Email ID <span class="req">*</span></label>
@@ -1245,7 +1228,8 @@ unset($_SESSION['error'], $_SESSION['success']);
         const toggleBtn = document.getElementById('togglePassword');
         const submitBtn = document.getElementById('loginBtn');
 
-        const validity = { role: false, email: false, password: false, captcha: false };
+        // Role field was removed; default to true so login relies on credentials only
+        const validity = { role: true, email: false, password: false, captcha: false };
         let captchaCode = '';
 
         // ── CAPTCHA Generator ──
@@ -1279,19 +1263,22 @@ unset($_SESSION['error'], $_SESSION['success']);
             updateSubmitButton();
         });
 
-        // ── Role Validation ──
-        roleSelect.addEventListener('change', function() {
-            if (!this.value) {
-                showFieldError('role', 'Please select your role');
-                showInput(this, false);
-                validity.role = false;
-            } else {
-                showFieldSuccess('role');
-                showInput(this, true);
-                validity.role = true;
-            }
-            updateSubmitButton();
-        });
+        // ── Role Validation (optional) ──
+        if (roleSelect) {
+            validity.role = false;
+            roleSelect.addEventListener('change', function() {
+                if (!this.value) {
+                    showFieldError('role', 'Please select your role');
+                    showInput(this, false);
+                    validity.role = false;
+                } else {
+                    showFieldSuccess('role');
+                    showInput(this, true);
+                    validity.role = true;
+                }
+                updateSubmitButton();
+            });
+        }
 
         // ── Email Validation ──
         emailInput.addEventListener('input', debounce(validateEmail, 300));
@@ -1335,7 +1322,7 @@ unset($_SESSION['error'], $_SESSION['success']);
 
         // ── Form Submit ──
         form.addEventListener('submit', function(e) {
-            roleSelect.dispatchEvent(new Event('change'));
+            if (roleSelect) roleSelect.dispatchEvent(new Event('change'));
             validateEmail();
             validatePassword();
             captchaInput.dispatchEvent(new Event('input'));
@@ -1394,7 +1381,7 @@ unset($_SESSION['error'], $_SESSION['success']);
         }
 
         function updateSubmitButton() {
-            submitBtn.disabled = !(validity.role && validity.email && validity.password && validity.captcha);
+            submitBtn.disabled = !(validity.email && validity.password && validity.captcha && validity.role);
         }
 
         function debounce(fn, ms) {
@@ -1403,7 +1390,7 @@ unset($_SESSION['error'], $_SESSION['success']);
         }
 
         // Pre-check filled fields
-        if (roleSelect.value) roleSelect.dispatchEvent(new Event('change'));
+        if (roleSelect && roleSelect.value) roleSelect.dispatchEvent(new Event('change'));
         if (emailInput.value) validateEmail();
 
         // Auto dismiss alerts
