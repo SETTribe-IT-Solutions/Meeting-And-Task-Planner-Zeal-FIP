@@ -25,7 +25,7 @@ class AuthController {
         }
 
         // ── 2. Collect & Sanitize ──
-        $email    = strtolower(trim($_POST['email'] ?? ''));
+        $email    = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
 
         // Preserve old values for repopulation

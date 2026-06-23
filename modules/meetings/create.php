@@ -40,8 +40,19 @@ include_once '../../includes/header.php';
                             <input type="date" name="meeting_date" class="form-control rounded-3" min="<?php echo htmlspecialchars($today); ?>" required>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small fw-semibold text-secondary">Time</label>
-                            <input type="time" name="meeting_time" class="form-control rounded-3" required>
+                            <label class="form-label small fw-semibold text-secondary">Time (12-hour)</label>
+                            <div class="input-group">
+                                <input type="number" id="meeting_time_hour" class="form-control text-center fw-bold" min="1" max="12" placeholder="12" required style="font-size: 1.1rem; letter-spacing: 2px;">
+                                <span class="input-group-text fw-bold" style="font-size: 1.1rem;">:</span>
+                                <input type="number" id="meeting_time_minute" class="form-control text-center fw-bold" min="0" max="59" placeholder="00" required style="font-size: 1.1rem; letter-spacing: 2px;">
+                                <select id="meeting_time_ampm" class="form-select fw-bold" required style="font-size: 1rem; min-width: 95px;">
+                                    <option value="">AM/PM</option>
+                                    <option value="AM">AM</option>
+                                    <option value="PM">PM</option>
+                                </select>
+                            </div>
+                            <small class="text-muted d-block mt-2">Format: HH:MM AM/PM (e.g., 02:30 PM)</small>
+                            <input type="hidden" name="meeting_time" id="meeting_time_hidden">
                         </div>
                         <div class="col-md-6" id="location-field" style="display: none;">
                             <label class="form-label small fw-semibold text-secondary">Location</label>
@@ -107,6 +118,76 @@ document.addEventListener('DOMContentLoaded', function() {
     const addAttendeesBtn = document.getElementById('add-attendees-btn');
     const employeesSection = document.getElementById('employees-section');
     const employeesList = document.getElementById('employees-list');
+
+    // 12-hour time picker elements
+    const hourInput = document.getElementById('meeting_time_hour');
+    const minuteInput = document.getElementById('meeting_time_minute');
+    const ampmSelect = document.getElementById('meeting_time_ampm');
+    const timeHiddenInput = document.getElementById('meeting_time_hidden');
+    const form = document.querySelector('form');
+
+    // Convert 12-hour format to 24-hour format and update hidden input
+    function updateTimeHiddenInput() {
+        const hour = parseInt(hourInput.value) || 0;
+        const minute = parseInt(minuteInput.value) || 0;
+        const ampm = ampmSelect.value;
+
+        if (hour < 1 || hour > 12 || !ampm) {
+            timeHiddenInput.value = '';
+            return;
+        }
+
+        let hour24 = hour;
+        if (ampm === 'AM' && hour === 12) {
+            hour24 = 0; // 12 AM = 00:00
+        } else if (ampm === 'PM' && hour !== 12) {
+            hour24 = hour + 12; // 1-11 PM = 13-23
+        }
+
+        // Format as HH:MM:SS for database storage
+        const formattedTime = String(hour24).padStart(2, '0') + ':' + String(minute).padStart(2, '0') + ':00';
+        timeHiddenInput.value = formattedTime;
+    }
+
+    // Add event listeners for time inputs
+    hourInput.addEventListener('change', updateTimeHiddenInput);
+    hourInput.addEventListener('input', function() {
+        if (this.value > 12) this.value = 12;
+        if (this.value < 1 && this.value !== '') this.value = 1;
+    });
+
+    minuteInput.addEventListener('change', updateTimeHiddenInput);
+    minuteInput.addEventListener('input', function() {
+        if (this.value > 59) this.value = 59;
+        if (this.value < 0 && this.value !== '') this.value = 0;
+    });
+
+    ampmSelect.addEventListener('change', updateTimeHiddenInput);
+
+    // Validate form before submission
+    form.addEventListener('submit', function(e) {
+        const hour = hourInput.value;
+        const minute = minuteInput.value;
+        const ampm = ampmSelect.value;
+
+        if (!hour || !minute || !ampm) {
+            e.preventDefault();
+            alert('Please select a valid time (HH:MM AM/PM)');
+            return false;
+        }
+
+        if (parseInt(hour) < 1 || parseInt(hour) > 12) {
+            e.preventDefault();
+            alert('Hour must be between 1 and 12');
+            return false;
+        }
+
+        if (parseInt(minute) < 0 || parseInt(minute) > 59) {
+            e.preventDefault();
+            alert('Minute must be between 0 and 59');
+            return false;
+        }
+    });
 
     departmentSelect.addEventListener('change', function() {
         addAttendeesBtn.disabled = !this.value;
