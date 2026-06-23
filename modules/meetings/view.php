@@ -120,7 +120,7 @@ if (isOrganizer()) {
                 </div>
                 <div class="col-6 col-sm-4">
                     <small class="text-muted d-block uppercase fw-bold" style="font-size: 0.75rem;">TIME</small>
-                    <span class="fw-semibold text-dark"><?php echo date('g:i A', strtotime($meeting['meeting_time'])); ?></span>
+                    <span class="fw-semibold text-dark"><?php echo formatTime12Hour($meeting['meeting_time']); ?></span>
                 </div>
                 <div class="col-6 col-sm-4">
                     <small class="text-muted d-block uppercase fw-bold" style="font-size: 0.75rem;">MODE</small>

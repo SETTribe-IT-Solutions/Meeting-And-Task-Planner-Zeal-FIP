@@ -60,7 +60,7 @@ if ($result) {
                                 </td>
                                 <td>
                                     <?php echo htmlspecialchars($meeting['meeting_date']); ?><br>
-                                    <small class="text-muted"><?php echo htmlspecialchars($meeting['meeting_time']); ?></small>
+                                    <small class="text-muted"><?php echo formatTime12Hour($meeting['meeting_time']); ?></small>
                                 </td>
                                 <td><?php echo htmlspecialchars($meeting['department']); ?></td>
                                 <td><?php echo htmlspecialchars($meeting['mode']); ?></td>

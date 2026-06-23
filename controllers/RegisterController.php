@@ -40,7 +40,7 @@ class RegisterController {
 
         // ── 2. Collect & Sanitize Inputs ──
         $name        = trim($_POST['name'] ?? '');
-        $email       = strtolower(trim($_POST['email'] ?? ''));
+        $email       = trim($_POST['email'] ?? '');
         $phone       = trim($_POST['phone'] ?? '');
         $gender      = trim($_POST['gender'] ?? '');
         $role        = trim($_POST['role'] ?? '');

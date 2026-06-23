@@ -266,4 +266,25 @@ function isOrganizer() {
 function isAdmin() {
     return isset($_SESSION['role']) && $_SESSION['role'] === 'Collector';
 }
+
+// Helper function to format time in 12-hour format with AM/PM
+function formatTime12Hour($time) {
+    if (empty($time)) {
+        return '';
+    }
+    // If it's a string time (HH:MM:SS format)
+    $timeArray = explode(':', $time);
+    if (count($timeArray) >= 2) {
+        $hour = (int)$timeArray[0];
+        $minute = $timeArray[1];
+        $ampm = ($hour >= 12) ? 'PM' : 'AM';
+        if ($hour > 12) {
+            $hour = $hour - 12;
+        } elseif ($hour === 0) {
+            $hour = 12;
+        }
+        return str_pad($hour, 2, '0', STR_PAD_LEFT) . ':' . $minute . ' ' . $ampm;
+    }
+    return $time;
+}
 ?>

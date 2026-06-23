@@ -365,7 +365,7 @@ include __DIR__ . '/includes/header.php';
                                 </a>
                             </td>
                             <td><?php echo date('d M Y', strtotime($meeting['meeting_date'])); ?></td>
-                            <td><?php echo date('g:i A', strtotime($meeting['meeting_time'])); ?></td>
+                            <td><?php echo formatTime12Hour($meeting['meeting_time']); ?></td>
                             <td><?php echo htmlspecialchars($meeting['location']); ?></td>
                             <td><?php echo htmlspecialchars($meeting['organizer_name']); ?></td>
                             <td>
