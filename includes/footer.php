@@ -4,7 +4,7 @@
 
     <style>
         .footer {
-            background: #0f2b38;
+            background: linear-gradient(135deg, #0f2b38, #0b1f2a);
             color: #e0e7ef;
             padding: 1.2rem 2rem;
             display: flex;
@@ -12,22 +12,27 @@
             align-items: center;
             flex-wrap: wrap;
             font-size: 0.85rem;
-            border-top: 2px solid var(--gov-yellow);
+            border-top: 3px solid #f9b81b;
         }
         .footer-links a {
             color: #cbd5e1;
             text-decoration: none;
             margin-left: 15px;
+            transition: all 0.3s ease;
+            font-weight: 500;
         }
-        .footer-links a:hover { color: #f9b81b; }
+        .footer-links a:hover { 
+            color: #f9b81b; 
+            transform: translateY(-1px);
+        }
     </style>
 
-    <!-- Bootstrap 5 JS Bundle -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap 5.3 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- Custom JS -->
-    <script src="<?php echo defined('APP_URL') ? APP_URL : ''; ?>/assets/js/script.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- Custom App JS (Pagination, Filters, Animations) -->
+    <script src="<?php echo defined('APP_URL') ? APP_URL : ''; ?>/assets/js/app.js"></script>
     
     <!-- Footer -->
     <footer class="footer">

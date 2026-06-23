@@ -27,10 +27,19 @@ foreach ($requiredFields as $field) {
 
 $meetingId = (int) $_POST['meeting_id'];
 $title = trim($_POST['title']);
-$assignedTo = (int) $_POST['assigned_to'];
 $dueDate = trim($_POST['due_date']);
 $priority = trim($_POST['priority']);
 $notes = trim($_POST['notes'] ?? '');
+
+// assigned_to can be array (multiple) or single
+$assignedToInput = $_POST['assigned_to'] ?? [];
+if (is_array($assignedToInput)) {
+    $assignedIds = array_map('intval', $assignedToInput);
+} else {
+    $assignedIds = [(int)$assignedToInput];
+}
+// Primary assigned_to stored on tasks table (first selected)
+$assignedTo = isset($assignedIds[0]) ? (int)$assignedIds[0] : 0;
 
 try {
     $conn = getDBConnection();
@@ -41,11 +50,48 @@ try {
     $stmt->bind_param("isisss", $meetingId, $title, $assignedTo, $dueDate, $priority, $notes);
     $stmt->execute();
 
+    $insertId = $stmt->insert_id;
+
+    // Ensure task_assignments table exists
+    $conn->query("CREATE TABLE IF NOT EXISTS task_assignments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        task_id INT NOT NULL,
+        user_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // Insert assignments
+    if (!empty($assignedIds)) {
+        $insStmt = $conn->prepare("INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)");
+        foreach ($assignedIds as $uid) {
+            $uid = (int)$uid;
+            $insStmt->bind_param('ii', $insertId, $uid);
+            $insStmt->execute();
+        }
+    }
+
+    // If request is AJAX, return JSON
+    $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') || (!empty($_POST['ajax']) && $_POST['ajax'] == '1');
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true, 'message' => 'Task created successfully.', 'task_id' => $insertId]);
+        exit();
+    }
+
     $_SESSION['success'] = 'Task created successfully.';
     header('Location: ../index.php?status=success');
     exit();
 } catch (Exception $e) {
     error_log('Task creation failed: ' . $e->getMessage());
+    $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') || (!empty($_POST['ajax']) && $_POST['ajax'] == '1');
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => 'Unable to create task right now.'] );
+        exit();
+    }
+
     $_SESSION['error'] = 'Unable to create task right now.';
     header('Location: ../modules/tasks/create.php');
     exit();

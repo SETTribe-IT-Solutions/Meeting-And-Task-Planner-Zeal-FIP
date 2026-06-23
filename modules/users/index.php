@@ -20,24 +20,32 @@ unset($_SESSION['user_form_errors']);
 
 $result = $conn->query("SELECT id, name, email, role, department FROM users WHERE isDeleted = 'No' ORDER BY id DESC");
 $users = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+
+$totalUsers = count($users);
+$employeeCount = count(array_filter($users, fn($u) => $u['role'] === 'Employee'));
+$organizerCount = count(array_filter($users, fn($u) => $u['role'] === 'Organizer'));
 ?>
 
 <div class="row g-4">
     <div class="col-12">
-        <div class="card p-4 border-0 mb-4 shadow-sm bg-white">
+        <div class="card p-4 border-0 mb-4 shadow-sm bg-white animate-on-scroll">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
-                    <h3 class="fw-bold mb-1" style="color: #0b3d5f;">User Management</h3>
+                    <h3 class="fw-bold mb-1" style="color: var(--gov-blue);">User Management</h3>
                     <p class="text-muted mb-0">Create department users and review active user accounts.</p>
                 </div>
-                <span class="badge bg-primary px-3 py-2">Users</span>
+                <div class="d-flex gap-2">
+                    <span class="badge bg-light text-dark border px-3 py-2"><i class="fas fa-users me-1"></i> <?php echo $totalUsers; ?> Users</span>
+                    <span class="badge badge-role-employee px-3 py-2"><?php echo $employeeCount; ?> Employees</span>
+                    <span class="badge badge-role-organizer px-3 py-2"><?php echo $organizerCount; ?> Organizers</span>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="col-lg-4">
+    <div class="col-lg-4 animate-on-scroll">
         <div class="card border-0 shadow-sm bg-white p-4">
-            <h5 class="fw-bold text-gov-blue mb-3 border-bottom pb-2">
+            <h5 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--gov-blue);">
                 <i class="fas fa-user-plus text-primary me-2"></i> Create User
             </h5>
 
@@ -57,12 +65,12 @@ $users = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 
             <form action="../../controllers/UserController.php" method="POST">
                 <div class="mb-3">
-                    <label class="form-label small fw-semibold text-secondary">User Name</label>
+                    <label class="form-label">User Name</label>
                     <input type="text" name="name" class="form-control rounded-3" value="<?php echo htmlspecialchars($old['name'] ?? ''); ?>" required minlength="3" maxlength="100">
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label small fw-semibold text-secondary">Department</label>
+                    <label class="form-label">Department</label>
                     <select name="department" class="form-select rounded-3" required>
                         <option value="">Select department</option>
                         <?php foreach ($departments as $department): ?>
@@ -74,32 +82,40 @@ $users = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label small fw-semibold text-secondary">Email ID</label>
+                    <label class="form-label">Email ID</label>
                     <input type="email" name="email" class="form-control rounded-3" value="<?php echo htmlspecialchars($old['email'] ?? ''); ?>" required maxlength="150">
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label small fw-semibold text-secondary">Password</label>
+                    <label class="form-label">Password</label>
                     <input type="password" name="password" class="form-control rounded-3" required minlength="8" maxlength="64">
                     <small class="text-muted">Use 8-64 characters with uppercase, lowercase, and a number.</small>
                 </div>
 
-                <button type="submit" class="btn btn-primary rounded-3 w-100" style="background-color: var(--gov-blue);">
+                <button type="submit" class="btn btn-primary rounded-3 w-100">
                     <i class="fas fa-save me-1"></i> Create User
                 </button>
             </form>
         </div>
     </div>
 
-    <div class="col-lg-8">
-        <div class="card border-0 shadow-sm bg-white p-4">
-            <h5 class="fw-bold text-gov-blue mb-3 border-bottom pb-2">
+    <div class="col-lg-8 animate-on-scroll">
+        <div class="card border-0 shadow-sm bg-white p-4" id="usersTableWrapper" data-paginate data-per-page="10">
+            <h5 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--gov-blue);">
                 <i class="fas fa-users text-primary me-2"></i> User List
             </h5>
 
+            <div class="table-filter-bar">
+                <div class="table-search-input">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search users..." data-table-search="usersTableWrapper">
+                </div>
+                <span class="table-result-count"><?php echo $totalUsers; ?> records</span>
+            </div>
+
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead style="background:#eef6ff; border-top: 2px solid #0b3d5f;">
+                <table class="table table-enhanced table-hover align-middle mb-0">
+                    <thead>
                         <tr>
                             <th>User Name</th>
                             <th>Department</th>
@@ -118,7 +134,17 @@ $users = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                                     <td class="fw-semibold text-dark"><?php echo htmlspecialchars($user['name']); ?></td>
                                     <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($user['department']); ?></span></td>
                                     <td><?php echo htmlspecialchars($user['email']); ?></td>
-                                    <td><span class="badge bg-secondary"><?php echo htmlspecialchars($user['role']); ?></span></td>
+                                    <td>
+                                        <?php
+                                        $roleBadge = match($user['role']) {
+                                            'Collector' => 'badge-role badge-role-collector',
+                                            'Organizer' => 'badge-role badge-role-organizer',
+                                            'Employee' => 'badge-role badge-role-employee',
+                                            default => 'bg-secondary'
+                                        };
+                                        ?>
+                                        <span class="badge <?php echo $roleBadge; ?>"><?php echo htmlspecialchars($user['role']); ?></span>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>

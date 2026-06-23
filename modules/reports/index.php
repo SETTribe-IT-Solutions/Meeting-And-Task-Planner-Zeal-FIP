@@ -104,6 +104,9 @@ if ($role === 'Collector') {
     $tInProgress = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
 }
 
+$taskCompletionPct = $tTotal > 0 ? round(($tCompleted / $tTotal) * 100) : 0;
+$meetingCompletionPct = $mTotal > 0 ? round(($mCompleted / $mTotal) * 100) : 0;
+
 // 2. Fetch Detailed Meeting Reports for the table
 $reportSql = "SELECT m.id, m.title, m.meeting_date, m.department, m.status,
              (SELECT COUNT(*) FROM tasks WHERE meeting_id = m.id) as total_tasks,
@@ -129,7 +132,7 @@ if ($role === 'Organizer') {
 }
 
 if (!empty($searchQuery)) {
-    $reportSql .= ($role === 'Collector' ? " AND" : " AND") . " (m.title LIKE ? OR m.department LIKE ?)";
+    $reportSql .= " AND (m.title LIKE ? OR m.department LIKE ?)";
     $searchWildcard = "%" . $searchQuery . "%";
     $params[] = $searchWildcard;
     $params[] = $searchWildcard;
@@ -148,22 +151,64 @@ $meetingsReport = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 <div class="row">
     <div class="col-12">
-        <div class="card p-4 border-0 mb-4 shadow-sm bg-white">
+        <div class="card p-4 border-0 mb-4 shadow-sm bg-white animate-on-scroll">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h3 class="fw-bold mb-1" style="color: #0b3d5f;">Administrative Reports</h3>
+                    <h3 class="fw-bold mb-1" style="color: var(--gov-blue);">Administrative Reports</h3>
                     <p class="text-muted mb-0">Overview of meeting tasks, agendas, and attendance delivery.</p>
                 </div>
-                <span class="badge bg-primary px-3 py-2">Quarterly Review</span>
+                <span class="badge bg-primary px-3 py-2"><i class="fas fa-chart-line me-1"></i> Quarterly Review</span>
             </div>
         </div>
 
+        <!-- Summary Stats -->
         <div class="row g-4 mb-4">
-            <!-- Meetings Stat -->
-            <div class="col-md-6">
+            <div class="col-lg-3 col-md-6 animate-on-scroll">
+                <div class="card stat-card stat-primary border-0 p-4 h-100">
+                    <i class="fas fa-calendar stat-icon"></i>
+                    <div class="stat-label mb-1">TOTAL MEETINGS</div>
+                    <div class="stat-value counter-value" data-target="<?php echo $mTotal; ?>">0</div>
+                    <div class="stat-trend mt-2"><i class="fas fa-check me-1"></i> <?php echo $mCompleted; ?> completed</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 animate-on-scroll">
+                <div class="card stat-card stat-success border-0 p-4 h-100">
+                    <i class="fas fa-calendar-check stat-icon"></i>
+                    <div class="stat-label mb-1">MEETING COMPLETION</div>
+                    <div class="d-flex align-items-end gap-1">
+                        <div class="stat-value counter-value" data-target="<?php echo $meetingCompletionPct; ?>">0</div>
+                        <span style="font-size:1.2rem;font-weight:700;opacity:0.9;">%</span>
+                    </div>
+                    <div class="progress mt-2" style="height: 5px; background: rgba(255,255,255,0.2);"><div class="progress-bar bg-white" style="width: <?php echo $meetingCompletionPct; ?>%"></div></div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 animate-on-scroll">
+                <div class="card stat-card stat-warning border-0 p-4 h-100">
+                    <i class="fas fa-tasks stat-icon"></i>
+                    <div class="stat-label mb-1">TOTAL TASKS</div>
+                    <div class="stat-value counter-value" data-target="<?php echo $tTotal; ?>">0</div>
+                    <div class="stat-trend mt-2"><i class="fas fa-spinner me-1"></i> <?php echo ($tPending + $tInProgress); ?> active</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 animate-on-scroll">
+                <div class="card stat-card stat-info border-0 p-4 h-100">
+                    <i class="fas fa-chart-pie stat-icon"></i>
+                    <div class="stat-label mb-1">TASK COMPLETION</div>
+                    <div class="d-flex align-items-end gap-1">
+                        <div class="stat-value counter-value" data-target="<?php echo $taskCompletionPct; ?>">0</div>
+                        <span style="font-size:1.2rem;font-weight:700;opacity:0.9;">%</span>
+                    </div>
+                    <div class="progress mt-2" style="height: 5px; background: rgba(255,255,255,0.2);"><div class="progress-bar bg-white" style="width: <?php echo $taskCompletionPct; ?>%"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Summary Cards -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-6 animate-on-scroll">
                 <div class="card p-4 border-0 shadow-sm bg-white h-100">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-bold mb-0 text-gov-blue">Meeting Summary</h5>
+                        <h5 class="fw-bold mb-0" style="color: var(--gov-blue);">Meeting Summary</h5>
                         <i class="bi bi-calendar-check fs-4 text-primary"></i>
                     </div>
                     <ul class="list-group list-group-flush">
@@ -182,12 +227,10 @@ $meetingsReport = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                     </ul>
                 </div>
             </div>
-
-            <!-- Tasks Stat -->
-            <div class="col-md-6">
+            <div class="col-md-6 animate-on-scroll">
                 <div class="card p-4 border-0 shadow-sm bg-white h-100">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-bold mb-0 text-gov-blue">Task Execution</h5>
+                        <h5 class="fw-bold mb-0" style="color: var(--gov-blue);">Task Execution</h5>
                         <i class="bi bi-journal-check fs-4 text-warning"></i>
                     </div>
                     <ul class="list-group list-group-flush">
@@ -208,19 +251,28 @@ $meetingsReport = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             </div>
         </div>
 
-        <!-- Filter & Search Section -->
-        <div class="card p-4 border-0 shadow-sm mb-4 bg-white">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-                <h5 class="fw-bold mb-0 text-gov-blue">Meeting Reports Detailed Analysis</h5>
+        <!-- Filter & Search + Table -->
+        <div class="card p-4 border-0 shadow-sm mb-4 bg-white animate-on-scroll" id="reportsTableWrapper" data-paginate data-per-page="10">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                <h5 class="fw-bold mb-0" style="color: var(--gov-blue);"><i class="fas fa-table me-2"></i>Meeting Reports Detailed Analysis</h5>
                 <form method="GET" class="d-flex gap-2">
                     <input type="text" name="search" class="form-control rounded-3" placeholder="Search meeting title, wing..." style="width: 250px;" value="<?php echo htmlspecialchars($searchQuery); ?>">
-                    <button type="submit" class="btn btn-primary rounded-3">Search</button>
+                    <button type="submit" class="btn btn-primary rounded-3"><i class="fas fa-search"></i></button>
+                    <a href="index.php" class="btn btn-outline-secondary rounded-3" title="Reset"><i class="fas fa-undo"></i></a>
                 </form>
             </div>
+
+            <div class="table-filter-bar">
+                <div class="table-search-input">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Quick filter..." data-table-search="reportsTableWrapper">
+                </div>
+                <span class="table-result-count"><?php echo count($meetingsReport); ?> records</span>
+            </div>
             
-            <div class="table-responsive mt-3">
-                <table class="table table-hover align-middle mb-0">
-                    <thead style="background:#eef6ff; border-top: 2px solid #0b3d5f;">
+            <div class="table-responsive">
+                <table class="table table-enhanced table-hover align-middle mb-0">
+                    <thead>
                         <tr>
                             <th>Meeting Details</th>
                             <th>Wing / Dept</th>
@@ -275,13 +327,13 @@ $meetingsReport = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                         <?php
                                         $status = strtolower($rep['status']);
                                         $statusClass = match($status) {
-                                            'completed' => 'success',
-                                            'scheduled' => 'warning text-dark',
-                                            'cancelled' => 'danger',
-                                            default => 'secondary'
+                                            'completed' => 'badge-status-completed',
+                                            'scheduled' => 'badge-status-scheduled',
+                                            'cancelled' => 'badge-status-cancelled',
+                                            default => 'bg-secondary'
                                         };
                                         ?>
-                                        <span class="badge bg-<?php echo $statusClass; ?>"><?php echo ucfirst($status); ?></span>
+                                        <span class="badge <?php echo $statusClass; ?>"><?php echo ucfirst($status); ?></span>
                                     </td>
                                     <td class="text-end">
                                         <a href="../meetings/view.php?id=<?php echo $rep['id']; ?>" class="btn btn-sm btn-outline-primary rounded-3">
