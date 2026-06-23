@@ -17,10 +17,19 @@ $currentLang = $_SESSION['lang'] ?? 'en';
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
   <title>Latur District | Meeting & Task Planner</title>
+  <meta name="description" content="Official Meeting & Task Planner for Latur District Administration. Coordinate meetings, assign tasks, and track progress.">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- Font Awesome 6 for icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  <!-- Bootstrap 5 CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <!-- Bootstrap 5.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Custom Design System CSS -->
+  <link rel="stylesheet" href="<?php echo $basePath; ?>/assets/css/custom.css">
   <style>
     * {
       margin: 0;
@@ -29,9 +38,9 @@ $currentLang = $_SESSION['lang'] ?? 'en';
     }
 
     body {
-      font-family: 'Segoe UI', 'Poppins', Roboto, system-ui, sans-serif;
+      font-family: 'Inter', 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif;
       background:
-        linear-gradient(rgba(244, 247, 252, 0.82), rgba(244, 247, 252, 0.82)),
+        linear-gradient(rgba(240, 244, 248, 0.88), rgba(240, 244, 248, 0.88)),
         url('<?php echo $basePath; ?>/assets/image_e15bb67f.png') center / cover fixed no-repeat;
       display: flex;
       flex-direction: column;
@@ -47,17 +56,25 @@ $currentLang = $_SESSION['lang'] ?? 'en';
 
     /* ===== HEADER ===== */
     .header {
-      background: linear-gradient(135deg, #0b3d5f 0%, #1a5f7a 100%);
+      background: linear-gradient(135deg, #0b3d5f 0%, #1a5f7a 50%, #0b3d5f 100%);
+      background-size: 200% 200%;
+      animation: gradientShift 8s ease infinite;
       color: white;
       padding: 0.8rem 2rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
       position: sticky;
       top: 0;
       z-index: 100;
       flex-wrap: wrap;
+    }
+
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
     }
 
     .logo-area {
@@ -77,11 +94,16 @@ $currentLang = $_SESSION['lang'] ?? 'en';
       justify-content: center;
       border: 2px solid rgba(255, 255, 255, 0.9);
       box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+      transition: transform 0.3s ease;
+    }
+
+    .logo-area:hover .district-emblem {
+      transform: scale(1.08);
     }
 
     .title-section h1 {
       font-size: 1.7rem;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: 0.5px;
       line-height: 1.2;
       margin-bottom: 0;
@@ -103,15 +125,21 @@ $currentLang = $_SESSION['lang'] ?? 'en';
     }
 
     .date-badge {
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(8px);
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       padding: 0.5rem 1.2rem;
       border-radius: 30px;
       font-size: 0.9rem;
       display: flex;
       align-items: center;
       gap: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: background 0.3s ease;
+    }
+
+    .date-badge:hover {
+      background: rgba(255, 255, 255, 0.2);
     }
 
     .user-profile {
@@ -122,7 +150,7 @@ $currentLang = $_SESSION['lang'] ?? 'en';
       padding: 0.4rem 1rem;
       border-radius: 30px;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: all 0.3s ease;
       color: white;
       text-decoration: none;
     }
@@ -130,6 +158,7 @@ $currentLang = $_SESSION['lang'] ?? 'en';
     .user-profile:hover {
       background: rgba(255, 255, 255, 0.25);
       color: white;
+      transform: translateY(-1px);
     }
 
     .user-profile i {
@@ -141,13 +170,18 @@ $currentLang = $_SESSION['lang'] ?? 'en';
       font-size: 1.3rem;
       margin-right: 8px;
       cursor: pointer;
+      transition: transform 0.3s ease;
+    }
+
+    .notification-icon:hover {
+      transform: scale(1.15);
     }
 
     .notification-badge {
       position: absolute;
       top: -6px;
       right: -8px;
-      background: #f97316;
+      background: linear-gradient(135deg, #f97316, #ef4444);
       color: white;
       border-radius: 50%;
       width: 18px;
@@ -157,18 +191,40 @@ $currentLang = $_SESSION['lang'] ?? 'en';
       align-items: center;
       justify-content: center;
       font-weight: bold;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+    }
+
+    /* Mobile sidebar toggle */
+    .sidebar-toggle-btn {
+      display: none;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: white;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .sidebar-toggle-btn:hover {
+      background: rgba(255,255,255,0.3);
     }
 
     /* ===== SIDEBAR ===== */
     .sidebar {
       width: 270px;
-      background: #ffffff;
-      box-shadow: 2px 0 15px rgba(0, 0, 0, 0.05);
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      box-shadow: 2px 0 20px rgba(0, 0, 0, 0.06);
       display: flex;
       flex-direction: column;
       padding: 1.5rem 0.8rem;
-      border-right: 1px solid #e9eef3;
-      transition: all 0.2s;
+      border-right: 1px solid #e2e8f0;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .nav-menu {
@@ -179,20 +235,22 @@ $currentLang = $_SESSION['lang'] ?? 'en';
     }
 
     .nav-item {
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.4rem;
     }
 
     .nav-link {
       display: flex;
       align-items: center;
       gap: 14px;
-      padding: 0.8rem 1.2rem;
+      padding: 0.75rem 1.2rem;
       border-radius: 12px;
       color: #2c3e50;
       text-decoration: none;
       font-weight: 500;
-      transition: all 0.2s ease;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       font-size: 0.95rem;
+      position: relative;
+      overflow: hidden;
     }
 
     .nav-link i {
@@ -200,18 +258,39 @@ $currentLang = $_SESSION['lang'] ?? 'en';
       font-size: 1.1rem;
       text-align: center;
       color: #5e6f7d;
+      transition: color 0.3s;
+    }
+
+    .nav-link::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(11, 61, 95, 0.04), transparent);
+      transition: left 0.5s;
+    }
+
+    .nav-link:hover::before {
+      left: 100%;
     }
 
     .nav-link:hover {
-      background: #eef6ff;
+      background: linear-gradient(135deg, #eef6ff, #e8f4fd);
       color: #0b3d5f;
       transform: translateX(4px);
+      box-shadow: 0 2px 8px rgba(11, 61, 95, 0.06);
+    }
+
+    .nav-link:hover i {
+      color: #0b3d5f;
     }
 
     .nav-link.active {
-      background: #0b3d5f;
+      background: linear-gradient(135deg, #0b3d5f, #1a5f7a);
       color: white;
-      box-shadow: 0 6px 12px rgba(11, 61, 95, 0.3);
+      box-shadow: 0 6px 16px rgba(11, 61, 95, 0.3);
       font-weight: 600;
     }
 
@@ -231,14 +310,19 @@ $currentLang = $_SESSION['lang'] ?? 'en';
     }
 
     .latur-badge {
-      background: #fef9e7;
+      background: linear-gradient(135deg, #fef9e7, #fff8e1);
       border-radius: 14px;
       padding: 0.8rem;
       margin: 0 0.5rem 0.5rem;
       display: flex;
       align-items: center;
       gap: 10px;
-      border: 1px solid #f9b81b30;
+      border: 1px solid rgba(249, 184, 27, 0.2);
+      transition: transform 0.3s ease;
+    }
+
+    .latur-badge:hover {
+      transform: scale(1.02);
     }
 
     .latur-badge i {
@@ -250,42 +334,82 @@ $currentLang = $_SESSION['lang'] ?? 'en';
     .main-content {
       flex: 1;
       padding: 2rem;
-      background: rgba(248, 250, 253, 0.88);
+      background: linear-gradient(135deg, #f0f4f8 0%, #e8eef4 50%, #f0f4f8 100%);
       overflow-y: auto;
+    }
+
+    /* Dropdown menu styling */
+    .dropdown-menu {
+      border: none;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+      border-radius: 12px;
+      padding: 0.5rem;
+      animation: fadeInDown 0.2s ease;
+    }
+
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .dropdown-item {
+      border-radius: 8px;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .dropdown-item:hover {
+      background: #eef6ff;
+      transform: translateX(4px);
     }
 
     @media (max-width: 750px) {
       .header {
-        flex-direction: column;
-        align-items: flex-start;
+        flex-direction: row;
+        align-items: center;
         gap: 10px;
+        padding: 0.6rem 1rem;
+      }
+      .sidebar-toggle-btn {
+        display: inline-flex;
       }
       .sidebar {
-        width: 80px;
+        position: fixed;
+        left: -280px;
+        top: 0;
+        height: 100vh;
+        z-index: 200;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+      }
+      .sidebar.sidebar-open {
+        left: 0;
       }
       .nav-link span {
-        display: none;
+        display: inline;
       }
-      .nav-link {
-        justify-content: center;
-        padding: 0.8rem;
-      }
-      .latur-badge span,
-      .sidebar-footer span {
-        display: none;
-      }
+      .header-actions .date-badge span { display: none; }
+      .header-actions .date-badge i { margin: 0; }
+      .title-section h1 { font-size: 1.2rem; }
     }
   </style>
 </head>
 <body>
   <!-- HEADER -->
   <header class="header">
-    <div class="logo-area">
-      <img class="district-emblem" src="<?php echo $basePath; ?>/assets/photo_1763098684.jpg" alt="Latur Municipal Corporation logo">
-      <div class="title-section">
-        <h1>Latur District</h1>
-        <div class="subtitle">
-          <i class="fas fa-map-pin"></i> Meeting & Task Planner
+    <div class="d-flex align-items-center gap-3">
+      <?php if ($isLoggedIn): ?>
+      <button class="sidebar-toggle-btn" id="sidebarToggle" aria-label="Toggle sidebar">
+        <i class="fas fa-bars"></i>
+      </button>
+      <?php endif; ?>
+      <div class="logo-area">
+        <img class="district-emblem" src="<?php echo $basePath; ?>/assets/photo_1763098684.jpg" alt="Latur Municipal Corporation logo">
+        <div class="title-section">
+          <h1>Latur District</h1>
+          <div class="subtitle">
+            <i class="fas fa-map-pin"></i> Meeting & Task Planner
+          </div>
         </div>
       </div>
     </div>
