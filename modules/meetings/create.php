@@ -18,11 +18,12 @@ $all_users = $users_result ? $users_result->fetch_all(MYSQLI_ASSOC) : [];
 include_once '../../includes/header.php';
 ?>
 
-<div class="row justify-content-center my-5">
+<div class="row justify-content-center animate-on-scroll">
     <div class="col-lg-8">
-        <div class="card shadow-sm border-0 rounded-4">
-            <div class="card-header text-white fw-bold py-3" style="background: linear-gradient(90deg, #003366, #0055aa);">
-                Create New Meeting
+        <div class="card shadow-sm border-0 overflow-hidden">
+            <div class="card-header text-white fw-bold py-3 d-flex align-items-center gap-2" style="background: linear-gradient(135deg, #0b3d5f, #1a5f7a);">
+                <i class="fas fa-calendar-plus fs-5"></i>
+                <span>Schedule New Meeting</span>
             </div>
             <div class="card-body p-4">
                 <?php if (isset($_SESSION['error'])): ?>
@@ -32,20 +33,20 @@ include_once '../../includes/header.php';
                 <form action="../../controllers/MeetingController.php" method="POST">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label small fw-semibold text-secondary">Meeting Title</label>
-                            <input type="text" name="title" class="form-control rounded-3" required>
+                            <label class="form-label">Meeting Title</label>
+                            <input type="text" name="title" class="form-control rounded-3" required placeholder="e.g., District Planning Review">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small fw-semibold text-secondary">Date</label>
+                            <label class="form-label">Date</label>
                             <input type="date" name="meeting_date" class="form-control rounded-3" min="<?php echo htmlspecialchars($today); ?>" required>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small fw-semibold text-secondary">Time (12-hour)</label>
+                            <label class="form-label">Time (12-hour)</label>
                             <div class="input-group">
-                                <input type="number" id="meeting_time_hour" class="form-control text-center fw-bold" min="1" max="12" placeholder="12" required style="font-size: 1.1rem; letter-spacing: 2px;">
+                                <input type="number" id="meeting_time_hour" class="form-control text-center fw-bold rounded-start-3" min="1" max="12" placeholder="12" required style="font-size: 1.1rem; letter-spacing: 2px;">
                                 <span class="input-group-text fw-bold" style="font-size: 1.1rem;">:</span>
                                 <input type="number" id="meeting_time_minute" class="form-control text-center fw-bold" min="0" max="59" placeholder="00" required style="font-size: 1.1rem; letter-spacing: 2px;">
-                                <select id="meeting_time_ampm" class="form-select fw-bold" required style="font-size: 1rem; min-width: 95px;">
+                                <select id="meeting_time_ampm" class="form-select fw-bold rounded-end-3" required style="font-size: 1rem; min-width: 95px;">
                                     <option value="">AM/PM</option>
                                     <option value="AM">AM</option>
                                     <option value="PM">PM</option>
@@ -55,15 +56,15 @@ include_once '../../includes/header.php';
                             <input type="hidden" name="meeting_time" id="meeting_time_hidden">
                         </div>
                         <div class="col-md-6" id="location-field" style="display: none;">
-                            <label class="form-label small fw-semibold text-secondary">Location</label>
-                            <input type="text" name="location" id="locationInput" class="form-control rounded-3">
+                            <label class="form-label">Location</label>
+                            <input type="text" name="location" id="locationInput" class="form-control rounded-3" placeholder="e.g., Collector Office, Latur">
                         </div>
                         <div class="col-md-6" id="meeting-url-field">
-                            <label class="form-label small fw-semibold text-secondary">Meeting URL</label>
+                            <label class="form-label">Meeting URL</label>
                             <input type="url" name="meeting_url" id="meetingUrlInput" class="form-control rounded-3" placeholder="https://" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small fw-semibold text-secondary">Mode</label>
+                            <label class="form-label">Mode</label>
                             <select name="mode" class="form-select rounded-3" required>
                                 <option value="">Select mode</option>
                                 <option>Offline</option>
@@ -72,7 +73,7 @@ include_once '../../includes/header.php';
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small fw-semibold text-secondary">Department</label>
+                            <label class="form-label">Department</label>
                             <select name="department" class="form-select rounded-3" required>
                                 <option value="">Select department</option>
                                 <?php foreach ($departments as $department): ?>
@@ -86,18 +87,18 @@ include_once '../../includes/header.php';
                             </button>
                         </div>
                         <div class="col-12" id="employees-section" style="display: none;">
-                            <label class="form-label small fw-semibold text-secondary">Select Attendees from Selected Department</label>
+                            <label class="form-label">Select Attendees from Selected Department</label>
                             <div id="employees-list" class="p-3 border rounded-3 bg-white" style="max-height: 200px; overflow-y: auto;">
                                 <!-- Checkboxes will be populated here via JavaScript -->
                             </div>
                         </div>
                         <div class="col-12">
-                            <label class="form-label small fw-semibold text-secondary">Agenda</label>
-                            <textarea name="agenda" class="form-control rounded-3" rows="4" required></textarea>
+                            <label class="form-label">Agenda</label>
+                            <textarea name="agenda" class="form-control rounded-3" rows="4" required placeholder="Meeting agenda points..."></textarea>
                         </div>
                     </div>
                     <div class="mt-4 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary rounded-3" >Save Meeting</button>
+                        <button type="submit" class="btn btn-primary rounded-3 px-4"><i class="fas fa-save me-1"></i> Save Meeting</button>
                         <a href="../../index.php" class="btn btn-outline-secondary rounded-3">Cancel</a>
                     </div>
                 </form>
@@ -199,19 +200,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!modeSelect) return;
         const mode = modeSelect.value;
         if (mode === 'Offline') {
-            // show location, hide URL
             if (locationField) locationField.style.display = '';
             if (meetingUrlField) meetingUrlField.style.display = 'none';
             if (locationInput) locationInput.required = true;
             if (meetingUrlInput) meetingUrlInput.required = false;
         } else if (mode === 'Hybrid') {
-            // show both; neither strictly required so user can provide either or both
             if (locationField) locationField.style.display = '';
             if (meetingUrlField) meetingUrlField.style.display = '';
             if (locationInput) locationInput.required = false;
             if (meetingUrlInput) meetingUrlInput.required = false;
         } else {
-            // show URL (default), hide location
             if (locationField) locationField.style.display = 'none';
             if (meetingUrlField) meetingUrlField.style.display = '';
             if (locationInput) locationInput.required = false;
@@ -221,7 +219,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (modeSelect) {
         modeSelect.addEventListener('change', updateModeFields);
-        // set initial state
         updateModeFields();
     }
 

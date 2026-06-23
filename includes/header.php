@@ -2,13 +2,62 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
 
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // Check if user is logged in
-$isLoggedIn = isset($_SESSION['user_id']);
-$userName = $_SESSION['full_name'] ?? 'Guest';
+$isLoggedIn = isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
+
+// Get user name from session with proper fallback
+$userName = 'Guest';
+if ($isLoggedIn) {
+    if (isset($_SESSION['full_name']) && !empty($_SESSION['full_name'])) {
+        $userName = $_SESSION['full_name'];
+    } elseif (isset($_SESSION['user_name']) && !empty($_SESSION['user_name'])) {
+        $userName = $_SESSION['user_name'];
+    } elseif (isset($_SESSION['username']) && !empty($_SESSION['username'])) {
+        $userName = $_SESSION['username'];
+    } elseif (isset($_SESSION['name']) && !empty($_SESSION['name'])) {
+        $userName = $_SESSION['name'];
+    } else {
+        $userName = getUserNameFromDatabase($_SESSION['user_id']);
+    }
+}
+
 $userRole = $_SESSION['role'] ?? '';
 
 $basePath = defined('APP_URL') ? APP_URL : '';
 $currentLang = $_SESSION['lang'] ?? 'en';
+
+// Helper function to get user name from database
+function getUserNameFromDatabase($userId) {
+    global $conn;
+    try {
+        $stmt = $conn->prepare("SELECT full_name, username FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($user) {
+            $_SESSION['full_name'] = $user['full_name'] ?? $user['username'] ?? 'User';
+            return $_SESSION['full_name'];
+        }
+    } catch (Exception $e) {
+        error_log("Error fetching user name: " . $e->getMessage());
+    }
+    return 'User';
+}
+
+// Check if isOrganizer function already exists before declaring
+if (!function_exists('isOrganizer')) {
+    function isOrganizer() {
+        if (!isset($_SESSION['role'])) {
+            return false;
+        }
+        $organizerRoles = ['organizer', 'admin', 'super_admin', 'Administrator', 'admin'];
+        return in_array(strtolower($_SESSION['role']), array_map('strtolower', $organizerRoles));
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -17,10 +66,19 @@ $currentLang = $_SESSION['lang'] ?? 'en';
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
   <title>Latur District | Meeting & Task Planner</title>
+  <meta name="description" content="Official Meeting & Task Planner for Latur District Administration. Coordinate meetings, assign tasks, and track progress.">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- Font Awesome 6 for icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  <!-- Bootstrap 5 CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <!-- Bootstrap 5.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Custom Design System CSS -->
+  <link rel="stylesheet" href="<?php echo $basePath; ?>/assets/css/custom.css">
   <style>
     * {
       margin: 0;
@@ -29,146 +87,349 @@ $currentLang = $_SESSION['lang'] ?? 'en';
     }
 
     body {
-      font-family: 'Segoe UI', 'Poppins', Roboto, system-ui, sans-serif;
-      background:
-        linear-gradient(rgba(244, 247, 252, 0.82), rgba(244, 247, 252, 0.82)),
-        url('<?php echo $basePath; ?>/assets/image_e15bb67f.png') center / cover fixed no-repeat;
+      font-family: 'Inter', 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif;
+      background-color: #e8edf2;
       display: flex;
       flex-direction: column;
       min-height: 100vh;
+      position: relative;
+    }
+
+    /* Subtle Latur district map outline as watermark pattern */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 450" opacity="0.04"><path d="M130 70 L190 50 L250 80 L270 130 L240 170 L260 220 L220 260 L240 310 L200 350 L210 400 L160 410 L120 370 L90 320 L100 260 L70 200 L80 140 L100 90 Z" fill="none" stroke="%231a3a5c" stroke-width="1.8"/><circle cx="170" cy="170" r="9" fill="%231a3a5c" opacity="0.5"/><circle cx="210" cy="290" r="11" fill="%231a3a5c" opacity="0.4"/><path d="M150 110 L170 100 L190 115 L180 135 L155 130 Z" fill="none" stroke="%231a3a5c" stroke-width="1.2"/><path d="M180 370 L200 360 L215 380 L200 400 L175 390 Z" fill="none" stroke="%231a3a5c" stroke-width="1.2"/></svg>');
+      background-repeat: repeat;
+      background-size: 350px 400px;
+      pointer-events: none;
+      z-index: 0;
     }
 
     /* main layout: sidebar + content area */
     .app-container {
       display: flex;
       flex: 1;
-      min-height: 0; /* important for flex children */
+      min-height: 0;
+      position: relative;
+      z-index: 1;
     }
 
-    /* ===== HEADER ===== */
+    /* ===== NEW HEADER - EXACTLY MATCHING GOVERNMENT STYLE ===== */
     .header {
-      background: linear-gradient(135deg, #0b3d5f 0%, #1a5f7a 100%);
+      background: linear-gradient(135deg, #0a1628 0%, #1a2a4a 40%, #0d1f3c 70%, #0a1628 100%);
       color: white;
-      padding: 0.8rem 2rem;
+      padding: 0.6rem 2rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
       position: sticky;
       top: 0;
       z-index: 100;
       flex-wrap: wrap;
+      border-bottom: 3px solid #c9a84c;
+      position: relative;
+      overflow: hidden;
+      min-height: 80px;
     }
 
-    .logo-area {
+    /* Tricolor stripe at bottom */
+    .header::after {
+      content: "";
+      position: absolute;
+      bottom: -3px;
+      left: 0;
+      width: 100%;
+      height: 5px;
+      background: linear-gradient(90deg, 
+        #ff9933 0%, #ff9933 33.33%, 
+        #ffffff 33.33%, #ffffff 66.66%, 
+        #138847 66.66%, #138847 100%);
+      opacity: 0.8;
+    }
+
+    /* Subtle glow at top */
+    .header::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #c9a84c, transparent);
+      opacity: 0.5;
+    }
+
+    .header-left {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 15px;
+      z-index: 1;
+      flex: 0 0 auto;
     }
 
+    .header-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 1;
+      flex: 1;
+      text-align: center;
+      padding: 0 15px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      z-index: 1;
+      flex: 0 0 auto;
+    }
+
+    /* Emblem styling */
     .district-emblem {
-      width: 45px;
-      height: 45px;
+      width: 55px;
+      height: 55px;
       border-radius: 50%;
       background: #ffffff;
       object-fit: cover;
       display: flex;
       align-items: center;
       justify-content: center;
-      border: 2px solid rgba(255, 255, 255, 0.9);
-      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+      border: 3px solid #c9a84c;
+      box-shadow: 0 0 0 4px rgba(201, 168, 76, 0.25);
+      transition: transform 0.3s ease;
+      padding: 4px;
+    }
+
+    .logo-area:hover .district-emblem {
+      transform: scale(1.05);
+    }
+
+    .title-section {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .title-section .government-text {
+      font-size: 0.6rem;
+      font-weight: 400;
+      color: #c9a84c;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    .title-section .government-text i {
+      margin-right: 4px;
+      font-size: 0.5rem;
     }
 
     .title-section h1 {
-      font-size: 1.7rem;
-      font-weight: 600;
+      font-size: 1.3rem;
+      font-weight: 700;
       letter-spacing: 0.5px;
       line-height: 1.2;
       margin-bottom: 0;
+      color: #ffffff;
+      text-shadow: 1px 2px 4px rgba(0,0,0,0.5);
     }
 
     .title-section .subtitle {
-      font-size: 0.85rem;
-      opacity: 0.9;
+      font-size: 0.65rem;
+      opacity: 0.85;
       font-weight: 400;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
+      color: #e8d5a3;
+      letter-spacing: 0.3px;
+    }
+
+    .title-section .subtitle i {
+      font-size: 0.6rem;
+      color: #c9a84c;
+    }
+
+    /* Center header text - exactly like image */
+    .header-center .main-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 0.3px;
+      text-shadow: 1px 2px 4px rgba(0,0,0,0.3);
+      line-height: 1.4;
+    }
+
+    .header-center .main-title .highlight {
+      color: #c9a84c;
+    }
+
+    .header-center .main-title .separator {
+      color: #c9a84c;
+      margin: 0 4px;
+      opacity: 0.5;
+    }
+
+    .header-center .portal-name {
+      font-size: 0.75rem;
+      color: #e8d5a3;
+      font-weight: 400;
+      letter-spacing: 0.3px;
+      margin-top: 1px;
+    }
+
+    .header-center .portal-name i {
+      color: #c9a84c;
+      margin-right: 4px;
+      font-size: 0.7rem;
+    }
+
+    .header-center .marathi-text {
+      font-size: 0.6rem;
+      color: #a8b8d0;
+      letter-spacing: 0.5px;
+      font-weight: 300;
+      opacity: 0.7;
+      margin-top: 1px;
+    }
+
+    .header-center .marathi-text i {
+      color: #c9a84c;
+      margin: 0 4px;
+      font-size: 0.4rem;
     }
 
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 20px;
+      gap: 15px;
+      z-index: 1;
     }
 
     .date-badge {
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(8px);
-      padding: 0.5rem 1.2rem;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 0.3rem 0.8rem;
       border-radius: 30px;
-      font-size: 0.9rem;
+      font-size: 0.7rem;
       display: flex;
       align-items: center;
-      gap: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.25);
+      gap: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: background 0.3s ease;
+      color: #f0f0f0;
+    }
+
+    .date-badge:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(201, 168, 76, 0.5);
+    }
+
+    .date-badge i {
+      font-size: 0.7rem;
+      color: #c9a84c;
     }
 
     .user-profile {
       display: flex;
       align-items: center;
-      gap: 10px;
-      background: rgba(255, 255, 255, 0.1);
-      padding: 0.4rem 1rem;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 0.25rem 0.8rem 0.25rem 0.6rem;
       border-radius: 30px;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: all 0.3s ease;
       color: white;
       text-decoration: none;
+      border: 1px solid rgba(255,255,255,0.1);
     }
 
     .user-profile:hover {
-      background: rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.18);
       color: white;
+      transform: translateY(-1px);
+      border-color: rgba(201, 168, 76, 0.5);
     }
 
-    .user-profile i {
+    .user-profile i.fa-user-circle {
       font-size: 1.3rem;
+      color: #c9a84c;
+    }
+
+    .user-profile span {
+      font-size: 0.8rem;
     }
 
     .notification-icon {
       position: relative;
-      font-size: 1.3rem;
-      margin-right: 8px;
+      font-size: 1.1rem;
       cursor: pointer;
+      transition: transform 0.3s ease;
+      color: #f0f0f0;
+      padding: 4px;
+    }
+
+    .notification-icon:hover {
+      transform: scale(1.15);
+      color: #c9a84c;
     }
 
     .notification-badge {
       position: absolute;
-      top: -6px;
-      right: -8px;
-      background: #f97316;
+      top: -3px;
+      right: -5px;
+      background: #e53e3e;
       color: white;
       border-radius: 50%;
-      width: 18px;
-      height: 18px;
-      font-size: 0.7rem;
+      width: 17px;
+      height: 17px;
+      font-size: 0.55rem;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: bold;
+      animation: pulse 2s ease-in-out infinite;
+      border: 2px solid #0a1628;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+    }
+
+    .sidebar-toggle-btn {
+      display: none;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .sidebar-toggle-btn:hover {
+      background: rgba(255,255,255,0.25);
     }
 
     /* ===== SIDEBAR ===== */
     .sidebar {
       width: 270px;
-      background: #ffffff;
-      box-shadow: 2px 0 15px rgba(0, 0, 0, 0.05);
+      background: linear-gradient(180deg, #f8fafc 0%, #eef3f8 100%);
+      box-shadow: 2px 0 20px rgba(0, 0, 0, 0.08);
       display: flex;
       flex-direction: column;
       padding: 1.5rem 0.8rem;
-      border-right: 1px solid #e9eef3;
-      transition: all 0.2s;
+      border-right: 1px solid #cbd5e0;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .nav-menu {
@@ -179,117 +440,254 @@ $currentLang = $_SESSION['lang'] ?? 'en';
     }
 
     .nav-item {
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.4rem;
     }
 
     .nav-link {
       display: flex;
       align-items: center;
       gap: 14px;
-      padding: 0.8rem 1.2rem;
-      border-radius: 12px;
-      color: #2c3e50;
+      padding: 0.75rem 1.2rem;
+      border-radius: 10px;
+      color: #1e3a5f;
       text-decoration: none;
       font-weight: 500;
-      transition: all 0.2s ease;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       font-size: 0.95rem;
+      position: relative;
+      overflow: hidden;
     }
 
     .nav-link i {
       width: 22px;
       font-size: 1.1rem;
       text-align: center;
-      color: #5e6f7d;
+      color: #3a5a7c;
+      transition: color 0.3s;
+    }
+
+    .nav-link::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(9, 31, 47, 0.04), transparent);
+      transition: left 0.5s;
+    }
+
+    .nav-link:hover::before {
+      left: 100%;
     }
 
     .nav-link:hover {
-      background: #eef6ff;
-      color: #0b3d5f;
+      background: linear-gradient(135deg, #e2ecf7, #d4e3f2);
+      color: #091f2f;
       transform: translateX(4px);
+      box-shadow: 0 2px 8px rgba(9, 31, 47, 0.08);
+    }
+
+    .nav-link:hover i {
+      color: #091f2f;
     }
 
     .nav-link.active {
-      background: #0b3d5f;
+      background: linear-gradient(135deg, #0a1628, #1a2a4a);
       color: white;
-      box-shadow: 0 6px 12px rgba(11, 61, 95, 0.3);
+      box-shadow: 0 6px 16px rgba(10, 22, 40, 0.3);
       font-weight: 600;
     }
 
     .nav-link.active i {
-      color: #f9b81b;
+      color: #c9a84c;
     }
 
     .sidebar-footer {
       margin-top: auto;
-      border-top: 1px solid #e0e7ef;
+      border-top: 1px solid #cbd5e0;
       padding-top: 1.2rem;
       font-size: 0.8rem;
-      color: #64748b;
+      color: #475569;
       display: flex;
       flex-direction: column;
       gap: 6px;
     }
 
     .latur-badge {
-      background: #fef9e7;
+      background: linear-gradient(135deg, #fef7e6, #fde9c9);
       border-radius: 14px;
       padding: 0.8rem;
       margin: 0 0.5rem 0.5rem;
       display: flex;
       align-items: center;
       gap: 10px;
-      border: 1px solid #f9b81b30;
+      border: 1px solid rgba(201, 168, 76, 0.4);
+      transition: transform 0.3s ease;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+
+    .latur-badge:hover {
+      transform: scale(1.02);
     }
 
     .latur-badge i {
-      color: #f97316;
+      color: #c05621;
       font-size: 1.4rem;
     }
 
-    /* main content placeholder */
     .main-content {
       flex: 1;
       padding: 2rem;
-      background: rgba(248, 250, 253, 0.88);
+      background: #f0f4f8;
       overflow-y: auto;
     }
 
-    @media (max-width: 750px) {
+    .dropdown-menu {
+      border: none;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+      border-radius: 12px;
+      padding: 0.5rem;
+      animation: fadeInDown 0.2s ease;
+    }
+
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .dropdown-item {
+      border-radius: 8px;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .dropdown-item:hover {
+      background: #e2ecf7;
+      transform: translateX(4px);
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 1100px) {
+      .header-center .main-title {
+        font-size: 0.95rem;
+      }
+      .header-center .portal-name {
+        font-size: 0.65rem;
+      }
+    }
+
+    @media (max-width: 992px) {
+      .header-center .main-title {
+        font-size: 0.85rem;
+      }
+      .header-center .portal-name {
+        font-size: 0.6rem;
+      }
+      .header-center .marathi-text {
+        font-size: 0.5rem;
+      }
+    }
+
+    @media (max-width: 768px) {
       .header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
+        flex-direction: row;
+        align-items: center;
+        gap: 6px;
+        padding: 0.4rem 0.6rem;
+        min-height: 60px;
+      }
+      .sidebar-toggle-btn {
+        display: inline-flex;
       }
       .sidebar {
-        width: 80px;
+        position: fixed;
+        left: -280px;
+        top: 0;
+        height: 100vh;
+        z-index: 200;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.15);
       }
-      .nav-link span {
-        display: none;
+      .sidebar.sidebar-open {
+        left: 0;
       }
-      .nav-link {
-        justify-content: center;
-        padding: 0.8rem;
-      }
-      .latur-badge span,
-      .sidebar-footer span {
-        display: none;
-      }
+      .header-actions .date-badge span { display: none; }
+      .header-actions .date-badge { padding: 0.25rem 0.6rem; }
+      .header-actions .date-badge i { margin: 0; }
+      .title-section h1 { font-size: 0.9rem; }
+      .title-section .subtitle { font-size: 0.5rem; }
+      .title-section .government-text { font-size: 0.45rem; }
+      .district-emblem { width: 35px; height: 35px; padding: 3px; border-width: 2px; }
+      .header-left { gap: 6px; }
+      .header-right .user-profile span { display: none; }
+      .header-right .user-profile { padding: 0.25rem 0.5rem; }
+      .header-center .main-title { font-size: 0.7rem; }
+      .header-center .portal-name { font-size: 0.5rem; }
+      .header-center .marathi-text { font-size: 0.45rem; }
+      .header-center .marathi-text i { margin: 0 2px; }
+      .header-actions .notification-icon { font-size: 0.9rem; }
+      .header-actions .notification-badge { width: 15px; height: 15px; font-size: 0.45rem; top: -2px; right: -4px; }
+      .main-content { padding: 1rem; }
+    }
+
+    @media (max-width: 480px) {
+      .header { padding: 0.3rem 0.4rem; min-height: 50px; }
+      .title-section h1 { font-size: 0.7rem; }
+      .title-section .subtitle { display: none; }
+      .title-section .government-text { font-size: 0.4rem; }
+      .district-emblem { width: 28px; height: 28px; padding: 2px; border-width: 2px; }
+      .header-left { gap: 4px; }
+      .header-center .main-title { font-size: 0.55rem; }
+      .header-center .portal-name { display: none; }
+      .header-center .marathi-text { font-size: 0.4rem; }
+      .header-actions .date-badge { display: none; }
+      .header-actions .user-profile i.fa-user-circle { font-size: 1rem; }
+      .header-actions .user-profile { padding: 0.2rem 0.4rem; }
+      .header-actions .notification-icon { font-size: 0.8rem; }
+      .header-actions .notification-badge { width: 13px; height: 13px; font-size: 0.4rem; top: -2px; right: -3px; }
     }
   </style>
 </head>
 <body>
-  <!-- HEADER -->
+  <!-- NEW HEADER - EXACTLY MATCHING YOUR IMAGE -->
   <header class="header">
-    <div class="logo-area">
-      <img class="district-emblem" src="<?php echo $basePath; ?>/assets/photo_1763098684.jpg" alt="Latur Municipal Corporation logo">
-      <div class="title-section">
-        <h1>Latur District</h1>
-        <div class="subtitle">
-          <i class="fas fa-map-pin"></i> Meeting & Task Planner
+    <!-- Left Section: Toggle + Emblem + Title -->
+    <div class="header-left">
+      <?php if ($isLoggedIn): ?>
+      <button class="sidebar-toggle-btn" id="sidebarToggle" aria-label="Toggle sidebar">
+        <i class="fas fa-bars"></i>
+      </button>
+      <?php endif; ?>
+      <div class="logo-area d-flex align-items-center gap-2">
+        <img class="district-emblem" src="<?php echo $basePath; ?>/assets/photo_1763098684.jpg" alt="Latur Municipal Corporation logo">
+        <div class="title-section">
+          <span class="government-text"><i class="fas fa-flag"></i> Government of Maharashtra</span>
+          <h1>Latur District</h1>
+          <div class="subtitle">
+            <i class="fas fa-map-pin"></i> Meeting & Task Planner
+          </div>
         </div>
       </div>
     </div>
-    <div class="header-actions">
+
+    <!-- Center Section: Main Government Title - EXACTLY AS IN IMAGE -->
+    <div class="header-center">
+      <div class="main-title">
+        DISTRICT <span class="highlight">LATUR</span><span class="separator">,</span> 
+        <span style="font-weight: 400;">GOVERNMENT OF MAHARASHTRA</span>
+      </div>
+      <div class="portal-name">
+        <i class="fas fa-building-columns"></i>
+        Collectorate Institutional Inter-Departmental Monitoring Portal
+      </div>
+      <div class="marathi-text">
+        <i class="fas fa-star"></i> लातूर जिल्हा <i class="fas fa-star"></i>
+      </div>
+    </div>
+
+    <!-- Right Section: Date, Notifications, User -->
+    <div class="header-right">
       <div class="date-badge">
         <i class="far fa-calendar-alt"></i>
         <span id="liveDate"></span>
@@ -303,7 +701,7 @@ $currentLang = $_SESSION['lang'] ?? 'en';
           <a href="#" class="user-profile dropdown-toggle text-decoration-none" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
             <i class="fas fa-user-circle"></i>
             <span><?php echo htmlspecialchars($userName); ?></span>
-            <i class="fas fa-chevron-down ms-1" style="font-size: 0.7rem;"></i>
+            <i class="fas fa-chevron-down ms-1" style="font-size: 0.5rem; opacity: 0.7;"></i>
           </a>
           <ul class="dropdown-menu dropdown-menu-end shadow border-0" aria-labelledby="userDropdown">
             <li><a class="dropdown-item" href="<?php echo $basePath; ?>/modules/users/profile.php"><i class="fas fa-user me-2"></i> Profile</a></li>
@@ -360,7 +758,7 @@ $currentLang = $_SESSION['lang'] ?? 'en';
             <span>Reports</span>
           </a>
         </li>
-        <?php if (isOrganizer()): ?>
+        <?php if (function_exists('isOrganizer') && isOrganizer()): ?>
         <li class="nav-item">
           <a href="<?php echo $basePath; ?>/modules/users/index.php" class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'users/index') !== false ? 'active' : ''; ?>">
             <i class="fas fa-user-cog"></i>
