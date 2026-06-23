@@ -241,289 +241,848 @@ $task_completion_pct = $total_tasks > 0 ? round(($completed_tasks / $total_tasks
 include __DIR__ . '/includes/header.php';
 ?>
 
-<!-- Welcome Card -->
-<div class="welcome-card mb-4 animate-on-scroll">
-    <div class="welcome-card-inner">
-        <div class="welcome-card-content">
-            <h2><i class="fas fa-hand-sparkles" style="color: #f9b81b;"></i> Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?></h2>
-            <p style="color: #334155; margin: 0.5rem 0 1.5rem;">Coordinate district meetings, assign tasks, and track progress across Latur talukas.</p>
-            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <div style="background: linear-gradient(135deg, #eef6ff, #dbeafe); padding: 0.7rem 1.3rem; border-radius: 30px; color: #0b3d5f; font-weight: 500; font-size: 0.9rem;">
-                    <i class="fas fa-calendar-plus" style="color: #0b3d5f;"></i> <strong>Meetings:</strong> <?php echo $upcoming_meetings; ?> Upcoming
-                </div>
-                <div style="background: linear-gradient(135deg, #fef3c7, #fde68a); padding: 0.7rem 1.3rem; border-radius: 30px; color: #b45309; font-weight: 500; font-size: 0.9rem;">
-                    <i class="fas fa-tasks" style="color: #b45309;"></i> <strong>Tasks:</strong> <?php echo $pending_tasks; ?> Pending
-                </div>
-                <div style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); padding: 0.7rem 1.3rem; border-radius: 30px; color: #166534; font-weight: 500; font-size: 0.9rem;">
-                    <i class="fas fa-user-shield" style="color: #166534;"></i> <strong>Role:</strong> <?php echo htmlspecialchars($role); ?>
-                </div>
-            </div>
-            <p style="margin-top: 1.5rem; font-style: italic; color: #475569; margin-bottom: 0; font-size: 0.9rem;">
-                <i class="fas fa-quote-left"></i> Efficient planning for Latur's development <i class="fas fa-quote-right"></i>
-            </p>
-        </div>
-        <img class="welcome-card-image" src="<?php echo $basePath; ?>/assets/image_e15bb67f.png" alt="Latur municipal building">
-    </div>
-</div>
-
 <style>
-    .welcome-card-inner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 2rem;
+    /* Modern Admin Panel CSS - Government Style */
+    :root {
+        --primary-blue: #1a237e;
+        --primary-gold: #c9a959;
+        --primary-dark: #0d1445;
+        --accent-saffron: #ff9933;
+        --accent-green: #138808;
+        --bg-light: #f5f6fa;
+        --card-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        --text-dark: #1a1a2e;
+        --text-muted: #6b7280;
     }
-    .welcome-card-content {
-      flex: 1 1 420px;
-      min-width: 0;
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
     }
-    .welcome-card-image {
-      flex: 0 1 420px;
-      max-width: 420px;
-      width: 38%;
-      min-width: 260px;
-      aspect-ratio: 16 / 9;
-      border-radius: 16px;
-      object-fit: cover;
-      box-shadow: 0 12px 30px rgba(11, 61, 95, 0.18);
-      transition: transform 0.4s ease;
+
+    body {
+        background: var(--bg-light);
+        font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
     }
-    .welcome-card-image:hover {
-      transform: scale(1.02);
+
+    /* ============================================================ */
+    /* ===== NEW: BACKGROUND IMAGE WITH OVERLAY ===== */
+    /* ============================================================ */
+    /* This adds a background image to the entire page */
+    body {
+        background-image: url('<?php echo $basePath; ?>/assets/latur-district-map.png');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+        position: relative;
+        min-height: 100vh;
     }
-    @media (max-width: 992px) {
-      .welcome-card-inner {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .welcome-card-image {
-        width: 100%;
-        max-width: none;
-        min-width: 0;
-      }
+
+    /* Semi-transparent white overlay for readability */
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.88);
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    /* Ensure all content appears above the overlay */
+    .gov-header,
+    .nav-tabs-custom,
+    .dashboard-container,
+    .gov-footer {
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Make cards slightly transparent to show background */
+    .welcome-section,
+    .quick-action-panel,
+    .stat-card-modern,
+    .meeting-log {
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        transition: background 0.3s ease;
+    }
+
+    /* Keep header solid */
+    .gov-header {
+        background: linear-gradient(135deg, var(--primary-dark), var(--primary-blue));
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+
+    /* Keep nav tabs solid */
+    .nav-tabs-custom {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+
+    /* ============================================================ */
+    /* ===== END OF BACKGROUND IMAGE STYLES ===== */
+    /* ============================================================ */
+
+    /* Header - Government Style */
+    .gov-header {
+        background: linear-gradient(135deg, var(--primary-dark), var(--primary-blue));
+        padding: 0.75rem 2rem;
+        border-bottom: 4px solid var(--accent-saffron);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.2);
+    }
+
+    .gov-header-left {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    .gov-header-logo {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: white;
+        text-decoration: none;
+    }
+
+    .gov-header-logo .logo-icon {
+        font-size: 2rem;
+        background: var(--accent-saffron);
+        color: var(--primary-dark);
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+    }
+
+    .gov-header-logo .logo-text {
+        font-size: 1.1rem;
+        font-weight: 600;
+        line-height: 1.2;
+    }
+
+    .gov-header-logo .logo-text small {
+        display: block;
+        font-size: 0.7rem;
+        font-weight: 400;
+        opacity: 0.8;
+    }
+
+    .gov-header-right {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    .gov-header-user {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: white;
+        padding: 0.4rem 1rem 0.4rem 0.4rem;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50px;
+        border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .gov-header-user .user-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--accent-saffron);
+        color: var(--primary-dark);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+
+    .gov-header-user .user-info {
+        font-size: 0.85rem;
+    }
+
+    .gov-header-user .user-info .user-role {
+        display: block;
+        font-size: 0.65rem;
+        opacity: 0.7;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    /* Navigation Tabs */
+    .nav-tabs-custom {
+        background: white;
+        padding: 0 2rem;
+        border-bottom: 2px solid #e5e7eb;
+        display: flex;
+        gap: 0;
+        overflow-x: auto;
+    }
+
+    .nav-tabs-custom .nav-item {
+        padding: 0.9rem 1.5rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+        white-space: nowrap;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .nav-tabs-custom .nav-item:hover {
+        color: var(--primary-blue);
+        background: #f8f9fa;
+    }
+
+    .nav-tabs-custom .nav-item.active {
+        color: var(--primary-blue);
+        border-bottom-color: var(--accent-saffron);
+        font-weight: 600;
+    }
+
+    .nav-tabs-custom .nav-item i {
+        font-size: 1rem;
+    }
+
+    /* Main Container */
+    .dashboard-container {
+        padding: 1.5rem 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    /* Welcome Section */
+    .welcome-section {
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--card-shadow);
+        border-left: 5px solid var(--accent-saffron);
+        border-right: 5px solid var(--accent-green);
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    .welcome-section::before {
+        content: '🇮🇳';
+        position: absolute;
+        top: -5px;
+        right: 10px;
+        font-size: 5rem;
+        opacity: 0.05;
+    }
+
+    .welcome-section .welcome-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--primary-dark);
+        margin-bottom: 0.25rem;
+    }
+
+    .welcome-section .welcome-subtitle {
+        color: var(--text-muted);
+        font-size: 1rem;
+    }
+
+    .welcome-section .welcome-tags {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .welcome-section .welcome-tags .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 1rem;
+        background: var(--bg-light);
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-dark);
+    }
+
+    .welcome-section .welcome-tags .tag i {
+        color: var(--accent-saffron);
+    }
+
+    /* Quick Action Panel - Like in the image */
+    .quick-action-panel {
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid #e5e7eb;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    .quick-action-panel .panel-title {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .quick-action-panel .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .quick-action-panel .action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.9rem;
+        border: 2px solid #e5e7eb;
+        background: white;
+        color: var(--text-dark);
+        text-decoration: none;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+
+    .quick-action-panel .action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .quick-action-panel .action-btn.primary {
+        background: var(--primary-blue);
+        color: white;
+        border-color: var(--primary-blue);
+    }
+
+    .quick-action-panel .action-btn.primary:hover {
+        background: var(--primary-dark);
+    }
+
+    .quick-action-panel .action-btn.success {
+        background: var(--accent-green);
+        color: white;
+        border-color: var(--accent-green);
+    }
+
+    .quick-action-panel .action-btn.success:hover {
+        background: #0d6e0a;
+    }
+
+    .quick-action-panel .action-btn.warning {
+        background: var(--accent-saffron);
+        color: white;
+        border-color: var(--accent-saffron);
+    }
+
+    .quick-action-panel .action-btn.warning:hover {
+        background: #e68a00;
+    }
+
+    .quick-action-panel .action-btn.exit {
+        background: #dc3545;
+        color: white;
+        border-color: #dc3545;
+    }
+
+    .quick-action-panel .action-btn.exit:hover {
+        background: #b02a37;
+    }
+
+    /* Stats Cards - Like in the image */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-card-modern {
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    .stat-card-modern:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+
+    .stat-card-modern .stat-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        font-weight: 600;
+    }
+
+    .stat-card-modern .stat-number {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: var(--primary-dark);
+        margin: 0.25rem 0;
+    }
+
+    .stat-card-modern .stat-icon {
+        font-size: 2rem;
+        opacity: 0.15;
+        float: right;
+    }
+
+    .stat-card-modern .stat-change {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+    .stat-card-modern .stat-change .up { color: var(--accent-green); }
+    .stat-card-modern .stat-change .down { color: #dc3545; }
+
+    /* Meeting Log - Like in the image */
+    .meeting-log {
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
+        border: 1px solid #e5e7eb;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    .meeting-log-header {
+        padding: 1rem 1.5rem;
+        background: var(--bg-light);
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .meeting-log-header .log-title {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--primary-dark);
+    }
+
+    .meeting-log-header .log-title i {
+        color: var(--accent-saffron);
+        margin-right: 0.5rem;
+    }
+
+    .meeting-log-header .log-badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        background: var(--primary-blue);
+        color: white;
+        font-weight: 500;
+    }
+
+    .meeting-log-body {
+        padding: 1rem 1.5rem;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .meeting-log-body .log-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    .meeting-log-body .log-item:last-child {
+        border-bottom: none;
+    }
+
+    .meeting-log-body .log-item .log-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .meeting-log-body .log-item .log-info .log-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #eef2ff;
+        color: var(--primary-blue);
+    }
+
+    .meeting-log-body .log-item .log-info .log-details .log-title-text {
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: var(--text-dark);
+    }
+
+    .meeting-log-body .log-item .log-info .log-details .log-meta {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+
+    .meeting-log-body .log-item .log-status {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-weight: 500;
+    }
+
+    .log-status.scheduled { background: #dbeafe; color: #1e40af; }
+    .log-status.ongoing { background: #fef3c7; color: #92400e; }
+    .log-status.completed { background: #d1fae5; color: #065f46; }
+    .log-status.cancelled { background: #fee2e2; color: #991b1b; }
+
+    /* Empty State */
+    .empty-state-log {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-muted);
+    }
+
+    .empty-state-log i {
+        font-size: 3rem;
+        color: #d1d5db;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Footer */
+    .gov-footer {
+        background: var(--primary-dark);
+        color: rgba(255,255,255,0.7);
+        padding: 1rem 2rem;
+        text-align: center;
+        font-size: 0.8rem;
+        border-top: 3px solid var(--accent-saffron);
+        margin-top: 2rem;
+    }
+
+    .gov-footer strong {
+        color: white;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .gov-header {
+            padding: 0.5rem 1rem;
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .gov-header-left, .gov-header-right {
+            justify-content: center;
+        }
+        .nav-tabs-custom {
+            padding: 0 1rem;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+        }
+        .nav-tabs-custom .nav-item {
+            padding: 0.7rem 1rem;
+            font-size: 0.75rem;
+        }
+        .dashboard-container {
+            padding: 1rem;
+        }
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .welcome-section .welcome-title {
+            font-size: 1.3rem;
+        }
+        .quick-action-panel .action-buttons {
+            flex-direction: column;
+        }
+        .quick-action-panel .action-btn {
+            justify-content: center;
+        }
+        .meeting-log-body .log-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        body {
+            background-attachment: scroll;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 
-<!-- News Ticker (CSS-based) -->
-<div class="news-ticker-modern d-flex align-items-center py-2 mb-4 shadow-sm animate-on-scroll">
-    <span class="ticker-label ms-3"><i class="fas fa-bullhorn"></i> LATEST</span>
-    <div class="ticker-content">
-        <span class="ticker-text">
-            📢 Weekly administrative reviews are scheduled for every Friday. &nbsp;|&nbsp; 📋 New HR Policy updates for 2026 are now available under Reports. &nbsp;|&nbsp; 🔔 Please confirm your attendance for the upcoming District Planning meeting. &nbsp;|&nbsp; ✅ Digital attendance is now mandatory for all government meetings.
-        </span>
+<!-- ==================== HEADER ==================== -->
+<header class="gov-header">
+    <div class="gov-header-left">
+        <a href="#" class="gov-header-logo">
+            <span class="logo-icon">🏛</span>
+            <span class="logo-text">
+                DISTRICT LATUR
+                <small>Government of Maharashtra</small>
+            </span>
+        </a>
     </div>
-</div>
+    <div class="gov-header-right">
+        <div class="gov-header-user">
+            <span class="user-avatar"><?php echo strtoupper(substr($_SESSION['full_name'] ?? 'U', 0, 1)); ?></span>
+            <span class="user-info">
+                <?php echo htmlspecialchars($_SESSION['full_name'] ?? 'User'); ?>
+                <span class="user-role"><?php echo htmlspecialchars($role); ?></span>
+            </span>
+        </div>
+    </div>
+</header>
 
-<!-- Statistics Cards -->
-<div class="row g-4 mb-4">
-    <div class="col-xl-3 col-md-6 animate-on-scroll">
-        <div class="card stat-card stat-primary border-0 h-100 p-4">
-            <i class="fas fa-calendar-check stat-icon"></i>
-            <div class="stat-label mb-2">TOTAL MEETINGS</div>
-            <div class="stat-value counter-value" data-target="<?php echo $meetings_organized; ?>">0</div>
-            <div class="stat-trend mt-2"><i class="fas fa-calendar-day me-1"></i> <?php echo $todays_meetings; ?> today</div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 animate-on-scroll">
-        <div class="card stat-card stat-success border-0 h-100 p-4">
-            <i class="fas fa-clock stat-icon"></i>
-            <div class="stat-label mb-2">UPCOMING MEETINGS</div>
-            <div class="stat-value counter-value" data-target="<?php echo $upcoming_meetings; ?>">0</div>
-            <div class="stat-trend mt-2"><i class="fas fa-arrow-trend-up me-1"></i> Next 30 days</div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 animate-on-scroll">
-        <div class="card stat-card stat-warning border-0 h-100 p-4">
-            <i class="fas fa-tasks stat-icon"></i>
-            <div class="stat-label mb-2">PENDING TASKS</div>
-            <div class="stat-value counter-value" data-target="<?php echo $pending_tasks; ?>">0</div>
-            <div class="stat-trend mt-2"><i class="fas fa-check-circle me-1"></i> <?php echo $completed_tasks; ?> completed</div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 animate-on-scroll">
-        <div class="card stat-card <?php echo $overdue_tasks > 0 ? 'stat-danger' : 'stat-info'; ?> border-0 h-100 p-4">
-            <i class="fas <?php echo $overdue_tasks > 0 ? 'fa-exclamation-triangle' : 'fa-chart-pie'; ?> stat-icon"></i>
-            <div class="stat-label mb-2"><?php echo $overdue_tasks > 0 ? 'OVERDUE TASKS' : 'TASK COMPLETION'; ?></div>
-            <div class="stat-value counter-value" data-target="<?php echo $overdue_tasks > 0 ? $overdue_tasks : $task_completion_pct; ?>">0</div><?php if ($overdue_tasks === 0): ?><span style="font-size:1.2rem;font-weight:700">%</span><?php endif; ?>
-            <div class="stat-trend mt-2">
-                <?php if ($overdue_tasks > 0): ?>
-                    <i class="fas fa-exclamation-circle me-1"></i> Needs attention
-                <?php else: ?>
-                    <i class="fas fa-trophy me-1"></i> <?php echo $completed_tasks; ?> of <?php echo $total_tasks; ?> done
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- ==================== NAVIGATION TABS ==================== -->
+<nav class="nav-tabs-custom">
+    <a href="#" class="nav-item active">
+        <i class="fas fa-th-large"></i> Dashboard
+    </a>
+    <a href="<?php echo $basePath; ?>/modules/meetings/index.php" class="nav-item">
+        <i class="fas fa-calendar-check"></i> Schedule Meeting
+    </a>
+    <a href="#" class="nav-item">
+        <i class="fas fa-tasks"></i> Tasks
+    </a>
+    <a href="#" class="nav-item">
+        <i class="fas fa-user-check"></i> Attendance
+    </a>
+    <a href="#" class="nav-item">
+        <i class="fas fa-chart-bar"></i> Reports
+    </a>
+    <a href="#" class="nav-item">
+        <i class="fas fa-users"></i> Users
+    </a>
+    <a href="#" class="nav-item">
+        <i class="fas fa-building"></i> Departments
+    </a>
+</nav>
 
-<?php if ($role === 'Collector' && $total_users > 0): ?>
-<!-- Additional Stats Row for Collector -->
-<div class="row g-4 mb-4">
-    <div class="col-md-4 animate-on-scroll">
-        <div class="card stat-card stat-purple border-0 h-100 p-4">
-            <i class="fas fa-users stat-icon"></i>
-            <div class="stat-label mb-2">TOTAL USERS</div>
-            <div class="stat-value counter-value" data-target="<?php echo $total_users; ?>">0</div>
-            <div class="stat-trend mt-2"><i class="fas fa-user-check me-1"></i> Active accounts</div>
-        </div>
-    </div>
-    <div class="col-md-4 animate-on-scroll">
-        <div class="card border-0 shadow-sm h-100 p-4">
-            <h6 class="fw-bold text-secondary mb-3" style="font-size: 0.8rem; letter-spacing: 0.05em;">TASK COMPLETION RATE</h6>
-            <div class="progress mb-2" style="height: 12px; border-radius: 10px;">
-                <div class="progress-bar bg-success" role="progressbar" style="width: <?php echo $task_completion_pct; ?>%; border-radius: 10px;" aria-valuenow="<?php echo $task_completion_pct; ?>" aria-valuemin="0" aria-valuemax="100"></div>
-            </div>
-            <div class="d-flex justify-content-between">
-                <span class="text-muted" style="font-size: 0.8rem;"><?php echo $completed_tasks; ?> completed</span>
-                <span class="fw-bold text-success" style="font-size: 0.9rem;"><?php echo $task_completion_pct; ?>%</span>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4 animate-on-scroll">
-        <div class="card border-0 shadow-sm h-100 p-4">
-            <h6 class="fw-bold text-secondary mb-3" style="font-size: 0.8rem; letter-spacing: 0.05em;">MEETINGS TODAY</h6>
-            <div class="d-flex align-items-center gap-3">
-                <div style="width: 56px; height: 56px; border-radius: 16px; background: linear-gradient(135deg, #0b3d5f, #1a5f7a); display: flex; align-items: center; justify-content: center;">
-                    <span style="color: #f9b81b; font-size: 1.5rem; font-weight: 800;"><?php echo $todays_meetings; ?></span>
-                </div>
-                <div>
-                    <div class="fw-bold text-dark" style="font-size: 1.1rem;"><?php echo $todays_meetings > 0 ? 'Meetings scheduled' : 'No meetings today'; ?></div>
-                    <div class="text-muted" style="font-size: 0.8rem;"><?php echo date('l, d M Y'); ?></div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-<?php endif; ?>
+<!-- ==================== DASHBOARD CONTENT ==================== -->
+<div class="dashboard-container">
 
-<!-- Upcoming Meetings Section -->
-<div class="card border-0 shadow-sm mb-4 animate-on-scroll">
-    <div class="card-header bg-white py-3 fw-bold" style="color: var(--gov-blue); border-bottom: 2px solid #eef2f6;">
-        <i class="fas fa-calendar-week text-primary me-2"></i> Upcoming Meetings
+    <!-- Welcome Section -->
+    <div class="welcome-section animate-on-scroll">
+        <div class="welcome-title">
+            <i class="fas fa-hand-sparkles" style="color: var(--accent-saffron);"></i> 
+            Desk of <?php echo htmlspecialchars($_SESSION['full_name'] ?? 'User'); ?>
+        </div>
+        <div class="welcome-subtitle">
+            Collectorate Institutional Inter-Departmental Monitoring Portal
+        </div>
+        <div class="welcome-tags">
+            <span class="tag">
+                <i class="fas fa-calendar-plus"></i> 
+                <strong><?php echo $upcoming_meetings; ?></strong> Upcoming Meetings
+            </span>
+            <span class="tag">
+                <i class="fas fa-tasks"></i> 
+                <strong><?php echo $pending_tasks; ?></strong> Pending Tasks
+            </span>
+            <span class="tag">
+                <i class="fas fa-user-shield"></i> 
+                Role: <?php echo htmlspecialchars($role); ?>
+            </span>
+        </div>
     </div>
-    <div class="card-body">
-        <?php if (empty($upcoming)): ?>
-            <div class="empty-state">
-                <i class="bi bi-calendar2-week"></i>
-                <p>No upcoming meetings found.</p>
-                <?php if (isOrganizer()): ?>
-                <a href="<?php echo $basePath; ?>/modules/meetings/create.php" class="btn btn-primary btn-sm rounded-3">
-                    <i class="fas fa-plus-circle"></i> Create Meeting
-                </a>
-                <?php endif; ?>
-            </div>
-        <?php else: ?>
-            <div class="table-responsive">
-                <table class="table table-enhanced table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>Title</th>
-                            <th>Date</th>
-                            <th>Time</th>
-                            <th>Location</th>
-                            <th>Organizer</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($upcoming as $meeting): ?>
-                        <tr>
-                            <td>
-                                <a href="<?php echo $basePath; ?>/modules/meetings/view.php?id=<?php echo $meeting['id']; ?>" 
-                                   class="text-decoration-none fw-bold" style="color: var(--gov-blue);">
-                                    <?php echo htmlspecialchars($meeting['title']); ?>
-                                </a>
-                            </td>
-                            <td><?php echo date('d M Y', strtotime($meeting['meeting_date'])); ?></td>
-                            <td><?php echo formatTime12Hour($meeting['meeting_time']); ?></td>
-                            <td><?php echo htmlspecialchars($meeting['location']); ?></td>
-                            <td><?php echo htmlspecialchars($meeting['organizer_name']); ?></td>
-                            <td>
-                                <?php
-                                $status = strtolower($meeting['status']);
-                                $badge_class = match($status) {
-                                    'scheduled' => 'badge-status-scheduled',
-                                    'ongoing' => 'badge-status-ongoing',
-                                    'completed' => 'badge-status-completed',
-                                    'cancelled' => 'badge-status-cancelled',
-                                    default => 'bg-secondary'
-                                };
-                                ?>
-                                <span class="badge <?php echo $badge_class; ?>">
-                                    <?php echo ucfirst($status); ?>
-                                </span>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php endif; ?>
-    </div>
-</div>
 
-<!-- Quick Actions and Active Tasks -->
-<div class="row g-4">
-    <div class="col-md-6 animate-on-scroll">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-white py-3 fw-bold" style="color: var(--gov-blue); border-bottom: 2px solid #eef2f6;">
-                <i class="fas fa-bolt text-warning me-2"></i> Quick Actions
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-3">
+    <!-- Quick Action Panel -->
+    <div class="quick-action-panel animate-on-scroll">
+        <div class="panel-title">
+            <i class="fas fa-cubes"></i> WORKSPACE DIRECTORY PANEL • LATUR ADMINISTRATION SYNC
+        </div>
+        <div class="action-buttons">
+            <a href="<?php echo $basePath; ?>/modules/meetings/create.php" class="action-btn primary">
+                <i class="fas fa-plus-circle"></i> + Meeting
+            </a>
+            <a href="<?php echo $basePath; ?>/modules/tasks/create.php" class="action-btn success">
+                <i class="fas fa-tasks"></i> Task
+            </a>
+            <a href="<?php echo $basePath; ?>/modules/logout.php" class="action-btn exit">
+                <i class="fas fa-sign-out-alt"></i> Exit
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Grid -->
+    <div class="stats-grid animate-on-scroll">
+        <div class="stat-card-modern">
+            <i class="fas fa-file-alt stat-icon"></i>
+            <div class="stat-label">TOTAL DIRECTIVES</div>
+            <div class="stat-number counter-value" data-target="<?php echo $meetings_organized; ?>">0</div>
+            <div class="stat-change"><span class="up">↑</span> <?php echo $todays_meetings; ?> today</div>
+        </div>
+        <div class="stat-card-modern">
+            <i class="fas fa-chart-line stat-icon"></i>
+            <div class="stat-label">ACTIVE TRACKS</div>
+            <div class="stat-number counter-value" data-target="<?php echo $upcoming_meetings; ?>">0</div>
+            <div class="stat-change"><span class="up">↑</span> Next 30 days</div>
+        </div>
+        <div class="stat-card-modern">
+            <i class="fas fa-clipboard-list stat-icon"></i>
+            <div class="stat-label">OPEN TASKS</div>
+            <div class="stat-number counter-value" data-target="<?php echo $pending_tasks; ?>">0</div>
+            <div class="stat-change"><span class="up">↑</span> <?php echo $completed_tasks; ?> completed</div>
+        </div>
+    </div>
+
+    <!-- Executive Meeting Log -->
+    <div class="meeting-log animate-on-scroll">
+        <div class="meeting-log-header">
+            <span class="log-title">
+                <i class="fas fa-calendar-alt"></i> Executive Meeting Log
+            </span>
+            <span class="log-badge"><?php echo count($upcoming); ?> Scheduled</span>
+        </div>
+        <div class="meeting-log-body">
+            <?php if (empty($upcoming)): ?>
+                <div class="empty-state-log">
+                    <i class="fas fa-calendar-times"></i>
+                    <p>No upcoming meetings scheduled.</p>
                     <?php if (isOrganizer()): ?>
-                    <a href="<?php echo $basePath; ?>/modules/meetings/create.php" class="quick-action-btn text-white" style="background: linear-gradient(135deg, #0b3d5f, #1a5f7a);">
-                        <i class="fas fa-plus-circle"></i> Create New Meeting
-                    </a>
-                    <a href="<?php echo $basePath; ?>/modules/tasks/create.php" class="quick-action-btn text-dark fw-bold" style="background: linear-gradient(135deg, #fbbf24, #f59e0b);">
-                        <i class="fas fa-tasks"></i> Assign New Task
-                    </a>
+                        <a href="<?php echo $basePath; ?>/modules/meetings/create.php" class="btn btn-sm btn-primary">
+                            <i class="fas fa-plus-circle"></i> Schedule Meeting
+                        </a>
                     <?php endif; ?>
-                    <a href="<?php echo $basePath; ?>/modules/meetings/index.php" class="quick-action-btn" style="background: #eef6ff; color: #0b3d5f; border: 1.5px solid #bfdbfe;">
-                        <i class="fas fa-list"></i> View All Meetings
-                    </a>
-                    <a href="<?php echo $basePath; ?>/modules/users/profile.php" class="quick-action-btn" style="background: #f1f5f9; color: #475569; border: 1.5px solid #e2e8f0;">
-                        <i class="fas fa-user-circle"></i> View My Profile
-                    </a>
                 </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 animate-on-scroll">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-white py-3 fw-bold" style="color: var(--gov-blue); border-bottom: 2px solid #eef2f6;">
-                <i class="fas fa-tasks text-success me-2"></i> Active Tasks (Next 5)
-            </div>
-            <div class="card-body">
-                <?php if (empty($active_tasks)): ?>
-                    <div class="empty-state">
-                        <i class="bi bi-check2-circle text-success"></i>
-                        <p>No active tasks assigned.</p>
-                    </div>
-                <?php else: ?>
-                    <div class="list-group list-group-flush">
-                        <?php foreach ($active_tasks as $task): ?>
-                            <div class="list-group-item px-0 py-3">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1 fw-bold text-dark"><?php echo htmlspecialchars($task['title']); ?></h6>
-                                    <small class="<?php echo (strtotime($task['due_date']) < strtotime($today)) ? 'overdue-text' : 'text-danger'; ?> fw-semibold">Due: <?php echo date('d M', strtotime($task['due_date'])); ?></small>
+            <?php else: ?>
+                <?php foreach ($upcoming as $meeting): ?>
+                    <div class="log-item">
+                        <div class="log-info">
+                            <div class="log-icon">
+                                <i class="fas fa-calendar-day"></i>
+                            </div>
+                            <div class="log-details">
+                                <div class="log-title-text">
+                                    <?php echo htmlspecialchars($meeting['title']); ?>
                                 </div>
-                                <p class="mb-1 text-muted small">Meeting: <?php echo htmlspecialchars($task['meeting_title']); ?></p>
-                                <div class="d-flex justify-content-between align-items-center mt-2">
-                                    <?php
-                                    $pBadge = match($task['priority']) { 'High'=>'badge-priority-high', 'Medium'=>'badge-priority-medium', 'Low'=>'badge-priority-low', default=>'bg-secondary' };
-                                    $sBadge = match($task['status']) { 'Completed'=>'badge-status-completed', 'In Progress'=>'badge-status-ongoing', 'Pending'=>'badge-status-scheduled', default=>'bg-secondary' };
-                                    ?>
-                                    <span class="badge <?php echo $pBadge; ?>"><?php echo htmlspecialchars($task['priority']); ?> Priority</span>
-                                    <span class="badge <?php echo $sBadge; ?>"><?php echo htmlspecialchars($task['status']); ?></span>
+                                <div class="log-meta">
+                                    <i class="far fa-clock"></i> <?php echo date('d M Y', strtotime($meeting['meeting_date'])); ?> at <?php echo formatTime12Hour($meeting['meeting_time']); ?>
+                                    &nbsp;•&nbsp; <i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($meeting['location']); ?>
+                                    &nbsp;•&nbsp; <i class="fas fa-user"></i> <?php echo htmlspecialchars($meeting['organizer_name']); ?>
                                 </div>
                             </div>
-                        <?php endforeach; ?>
+                        </div>
+                        <?php
+                        $status = strtolower($meeting['status']);
+                        $status_class = match($status) {
+                            'scheduled' => 'scheduled',
+                            'ongoing' => 'ongoing',
+                            'completed' => 'completed',
+                            'cancelled' => 'cancelled',
+                            default => 'scheduled'
+                        };
+                        ?>
+                        <span class="log-status <?php echo $status_class; ?>">
+                            <?php echo ucfirst($status); ?>
+                        </span>
                     </div>
-                <?php endif; ?>
-            </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
     </div>
+
+    <!-- Active Tasks Section -->
+    <div class="meeting-log animate-on-scroll">
+        <div class="meeting-log-header">
+            <span class="log-title">
+                <i class="fas fa-tasks" style="color: var(--accent-green);"></i> Active Tasks
+            </span>
+            <span class="log-badge" style="background: var(--accent-green);"><?php echo count($active_tasks); ?> Pending</span>
+        </div>
+        <div class="meeting-log-body">
+            <?php if (empty($active_tasks)): ?>
+                <div class="empty-state-log">
+                    <i class="fas fa-check-circle" style="color: var(--accent-green);"></i>
+                    <p>No active tasks assigned.</p>
+                </div>
+            <?php else: ?>
+                <?php foreach ($active_tasks as $task): ?>
+                    <div class="log-item">
+                        <div class="log-info">
+                            <div class="log-icon" style="background: #fef3c7; color: #92400e;">
+                                <i class="fas fa-clipboard"></i>
+                            </div>
+                            <div class="log-details">
+                                <div class="log-title-text">
+                                    <?php echo htmlspecialchars($task['title']); ?>
+                                </div>
+                                <div class="log-meta">
+                                    <i class="fas fa-users"></i> <?php echo htmlspecialchars($task['meeting_title']); ?>
+                                    &nbsp;•&nbsp; <i class="fas fa-user-check"></i> <?php echo htmlspecialchars($task['assignee_name']); ?>
+                                    &nbsp;•&nbsp; <i class="far fa-calendar-alt"></i> Due: <?php echo date('d M Y', strtotime($task['due_date'])); ?>
+                                </div>
+                            </div>
+                        </div>
+                        <?php
+                        $pBadge = match($task['priority']) { 
+                            'High' => 'scheduled', 
+                            'Medium' => 'ongoing', 
+                            'Low' => 'completed', 
+                            default => 'scheduled' 
+                        };
+                        ?>
+                        <span class="log-status <?php echo $pBadge; ?>">
+                            <?php echo htmlspecialchars($task['priority']); ?>
+                        </span>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+
 </div>
+
+<!-- ==================== FOOTER ==================== -->
+<footer class="gov-footer">
+    <strong>District Latur, Government of Maharashtra</strong> — Collectorate Institutional Inter-Departmental Monitoring Portal &bull; 
+    <i class="fas fa-copyright"></i> <?php echo date('Y'); ?> All Rights Reserved
+</footer>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
