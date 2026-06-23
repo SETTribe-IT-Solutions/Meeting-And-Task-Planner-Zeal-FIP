@@ -26,35 +26,29 @@ $sql = "";
 $params = [];
 $types = "";
 
+// Build base SQL with aggregated assignees
+$baseSelect = "SELECT t.*, m.title as meeting_title, m.department as meeting_department, o.name as organizer_name, GROUP_CONCAT(DISTINCT ua.name SEPARATOR ', ') AS assignees ";
+$baseFrom = "FROM tasks t 
+            JOIN meetings m ON t.meeting_id = m.id
+            JOIN users o ON m.organizer_id = o.id
+            LEFT JOIN task_assignments ta ON ta.task_id = t.id
+            LEFT JOIN users ua ON ta.user_id = ua.id";
+
 if ($role === 'Collector') {
-    // Collector sees all tasks
-    $sql = "SELECT t.*, u.name as assignee_name, m.title as meeting_title, o.name as organizer_name 
-            FROM tasks t 
-            JOIN users u ON t.assigned_to = u.id 
-            JOIN meetings m ON t.meeting_id = m.id
-            JOIN users o ON m.organizer_id = o.id
-            WHERE 1=1";
+    $sql = $baseSelect . $baseFrom . " WHERE 1=1";
 } elseif ($role === 'Organizer') {
-    // Organizer sees tasks for meetings they created
-    $sql = "SELECT t.*, u.name as assignee_name, m.title as meeting_title, o.name as organizer_name 
-            FROM tasks t 
-            JOIN users u ON t.assigned_to = u.id 
-            JOIN meetings m ON t.meeting_id = m.id
-            JOIN users o ON m.organizer_id = o.id
-            WHERE m.organizer_id = ?";
+    $sql = $baseSelect . $baseFrom . " WHERE m.organizer_id = ?";
     $params[] = $user_id;
     $types .= "i";
 } else {
     // Employee sees tasks assigned to them
-    $sql = "SELECT t.*, u.name as assignee_name, m.title as meeting_title, o.name as organizer_name 
-            FROM tasks t 
-            JOIN users u ON t.assigned_to = u.id 
-            JOIN meetings m ON t.meeting_id = m.id
-            JOIN users o ON m.organizer_id = o.id
-            WHERE t.assigned_to = ?";
+    $sql = $baseSelect . $baseFrom . " WHERE EXISTS (SELECT 1 FROM task_assignments t2 WHERE t2.task_id = t.id AND t2.user_id = ?)";
     $params[] = $user_id;
     $types .= "i";
 }
+
+// Group by task id to allow GROUP_CONCAT
+$sql .= " GROUP BY t.id";
 
 if (!empty($statusFilter)) {
     $sql .= " AND t.status = ?";
@@ -83,6 +77,13 @@ if (!empty($params)) {
 }
 $stmt->execute();
 $tasks = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// If requested via AJAX, return JSON list of tasks for client-side refresh
+if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
+    header('Content-Type: application/json');
+    echo json_encode($tasks);
+    exit();
+}
 
 // Stats
 $today = date('Y-m-d');
@@ -204,14 +205,17 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                     <table class="table table-enhanced table-hover align-middle mb-0">
                         <thead>
                             <tr>
-                                <th>Task Title</th>
-                                <th>Meeting Reference</th>
-                                <th>Assigned To</th>
-                                <th>Due Date</th>
-                                <th>Priority</th>
-                                <th>Status</th>
-                                <th class="text-end">Actions</th>
-                            </tr>
+                                                <th>Task ID</th>
+                                                <th>Task Title</th>
+                                                <th>Department</th>
+                                                <th>Assigned To</th>
+                                                <th>Assigned By</th>
+                                                <th>Meeting Reference</th>
+                                                <th>Due Date</th>
+                                                <th>Priority</th>
+                                                <th>Status</th>
+                                                <th class="text-end">Actions</th>
+                                            </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($tasks as $task): ?>
@@ -220,18 +224,24 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                                 $isOverdue = ($dueDate < strtotime($today) && $task['status'] !== 'Completed');
                                 ?>
                                 <tr class="<?php echo $isOverdue ? 'overdue-row' : ''; ?>">
+                                    <td>#<?php echo (int)$task['id']; ?></td>
                                     <td>
                                         <div class="fw-bold text-dark"><?php echo htmlspecialchars($task['title']); ?></div>
                                         <small class="text-muted d-block"><?php echo htmlspecialchars($task['notes']); ?></small>
                                     </td>
                                     <td>
+                                        <span class="badge bg-light text-dark border"><?php echo htmlspecialchars($task['meeting_department'] ?? $task['department'] ?? ''); ?></span>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold"><?php echo htmlspecialchars($task['assignees'] ?? $task['assignee_name'] ?? ''); ?></div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold"><?php echo htmlspecialchars($task['organizer_name']); ?></div>
+                                    </td>
+                                    <td>
                                         <a href="../meetings/view.php?id=<?php echo $task['meeting_id']; ?>" class="text-decoration-none fw-semibold">
                                             <?php echo htmlspecialchars($task['meeting_title']); ?>
                                         </a>
-                                        <small class="text-muted d-block">By: <?php echo htmlspecialchars($task['organizer_name']); ?></small>
-                                    </td>
-                                    <td>
-                                        <div class="fw-semibold"><?php echo htmlspecialchars($task['assignee_name']); ?></div>
                                     </td>
                                     <td>
                                         <span class="<?php echo $isOverdue ? 'overdue-text' : ''; ?>">

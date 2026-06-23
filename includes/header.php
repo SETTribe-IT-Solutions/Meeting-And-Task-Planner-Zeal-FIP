@@ -88,7 +88,9 @@ if (!function_exists('isOrganizer')) {
 
     body {
       font-family: 'Inter', 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif;
-      background-color: #e8edf2;
+      background:
+        linear-gradient(rgba(240, 244, 248, 0.88), rgba(240, 244, 248, 0.88)),
+        url('<?php echo $basePath; ?>/assets/image_e15bb67f.png') center / cover fixed no-repeat;
       display: flex;
       flex-direction: column;
       min-height: 100vh;
@@ -122,13 +124,15 @@ if (!function_exists('isOrganizer')) {
 
     /* ===== NEW HEADER - EXACTLY MATCHING GOVERNMENT STYLE ===== */
     .header {
-      background: linear-gradient(135deg, #0a1628 0%, #1a2a4a 40%, #0d1f3c 70%, #0a1628 100%);
+      background: linear-gradient(135deg, #0b3d5f 0%, #1a5f7a 50%, #0b3d5f 100%);
+      background-size: 200% 200%;
+      animation: gradientShift 8s ease infinite;
       color: white;
       padding: 0.6rem 2rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
       position: sticky;
       top: 0;
       z-index: 100;
@@ -184,7 +188,13 @@ if (!function_exists('isOrganizer')) {
       padding: 0 15px;
     }
 
-    .header-right {
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .logo-area {
       display: flex;
       align-items: center;
       gap: 15px;
@@ -202,37 +212,17 @@ if (!function_exists('isOrganizer')) {
       display: flex;
       align-items: center;
       justify-content: center;
-      border: 3px solid #c9a84c;
-      box-shadow: 0 0 0 4px rgba(201, 168, 76, 0.25);
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
       transition: transform 0.3s ease;
-      padding: 4px;
     }
 
     .logo-area:hover .district-emblem {
-      transform: scale(1.05);
-    }
-
-    .title-section {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .title-section .government-text {
-      font-size: 0.6rem;
-      font-weight: 400;
-      color: #c9a84c;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      opacity: 0.9;
-    }
-
-    .title-section .government-text i {
-      margin-right: 4px;
-      font-size: 0.5rem;
+      transform: scale(1.08);
     }
 
     .title-section h1 {
-      font-size: 1.3rem;
+      font-size: 1.7rem;
       font-weight: 700;
       letter-spacing: 0.5px;
       line-height: 1.2;
@@ -314,28 +304,21 @@ if (!function_exists('isOrganizer')) {
     }
 
     .date-badge {
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.12);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
-      padding: 0.3rem 0.8rem;
+      padding: 0.5rem 1.2rem;
       border-radius: 30px;
       font-size: 0.7rem;
       display: flex;
       align-items: center;
-      gap: 5px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      gap: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
       transition: background 0.3s ease;
-      color: #f0f0f0;
     }
 
     .date-badge:hover {
-      background: rgba(255, 255, 255, 0.15);
-      border-color: rgba(201, 168, 76, 0.5);
-    }
-
-    .date-badge i {
-      font-size: 0.7rem;
-      color: #c9a84c;
+      background: rgba(255, 255, 255, 0.2);
     }
 
     .user-profile {
@@ -356,7 +339,6 @@ if (!function_exists('isOrganizer')) {
       background: rgba(255, 255, 255, 0.18);
       color: white;
       transform: translateY(-1px);
-      border-color: rgba(201, 168, 76, 0.5);
     }
 
     .user-profile i.fa-user-circle {
@@ -373,20 +355,17 @@ if (!function_exists('isOrganizer')) {
       font-size: 1.1rem;
       cursor: pointer;
       transition: transform 0.3s ease;
-      color: #f0f0f0;
-      padding: 4px;
     }
 
     .notification-icon:hover {
       transform: scale(1.15);
-      color: #c9a84c;
     }
 
     .notification-badge {
       position: absolute;
-      top: -3px;
-      right: -5px;
-      background: #e53e3e;
+      top: -6px;
+      right: -8px;
+      background: linear-gradient(135deg, #f97316, #ef4444);
       color: white;
       border-radius: 50%;
       width: 17px;
@@ -397,7 +376,6 @@ if (!function_exists('isOrganizer')) {
       justify-content: center;
       font-weight: bold;
       animation: pulse 2s ease-in-out infinite;
-      border: 2px solid #0a1628;
     }
 
     @keyframes pulse {
@@ -405,30 +383,31 @@ if (!function_exists('isOrganizer')) {
       50% { transform: scale(1.15); }
     }
 
+    /* Mobile sidebar toggle */
     .sidebar-toggle-btn {
       display: none;
-      background: rgba(255,255,255,0.12);
-      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
       color: white;
       border-radius: 8px;
-      padding: 5px 8px;
-      font-size: 0.9rem;
+      padding: 6px 10px;
+      font-size: 1.1rem;
       cursor: pointer;
       transition: background 0.3s;
     }
     .sidebar-toggle-btn:hover {
-      background: rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.3);
     }
 
     /* ===== SIDEBAR ===== */
     .sidebar {
       width: 270px;
-      background: linear-gradient(180deg, #f8fafc 0%, #eef3f8 100%);
-      box-shadow: 2px 0 20px rgba(0, 0, 0, 0.08);
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      box-shadow: 2px 0 20px rgba(0, 0, 0, 0.06);
       display: flex;
       flex-direction: column;
       padding: 1.5rem 0.8rem;
-      border-right: 1px solid #cbd5e0;
+      border-right: 1px solid #e2e8f0;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
@@ -448,8 +427,8 @@ if (!function_exists('isOrganizer')) {
       align-items: center;
       gap: 14px;
       padding: 0.75rem 1.2rem;
-      border-radius: 10px;
-      color: #1e3a5f;
+      border-radius: 12px;
+      color: #2c3e50;
       text-decoration: none;
       font-weight: 500;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -462,7 +441,7 @@ if (!function_exists('isOrganizer')) {
       width: 22px;
       font-size: 1.1rem;
       text-align: center;
-      color: #3a5a7c;
+      color: #5e6f7d;
       transition: color 0.3s;
     }
 
@@ -473,7 +452,7 @@ if (!function_exists('isOrganizer')) {
       left: -100%;
       width: 100%;
       height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(9, 31, 47, 0.04), transparent);
+      background: linear-gradient(90deg, transparent, rgba(11, 61, 95, 0.04), transparent);
       transition: left 0.5s;
     }
 
@@ -482,20 +461,20 @@ if (!function_exists('isOrganizer')) {
     }
 
     .nav-link:hover {
-      background: linear-gradient(135deg, #e2ecf7, #d4e3f2);
-      color: #091f2f;
+      background: linear-gradient(135deg, #eef6ff, #e8f4fd);
+      color: #0b3d5f;
       transform: translateX(4px);
-      box-shadow: 0 2px 8px rgba(9, 31, 47, 0.08);
+      box-shadow: 0 2px 8px rgba(11, 61, 95, 0.06);
     }
 
     .nav-link:hover i {
-      color: #091f2f;
+      color: #0b3d5f;
     }
 
     .nav-link.active {
-      background: linear-gradient(135deg, #0a1628, #1a2a4a);
+      background: linear-gradient(135deg, #0b3d5f, #1a5f7a);
       color: white;
-      box-shadow: 0 6px 16px rgba(10, 22, 40, 0.3);
+      box-shadow: 0 6px 16px rgba(11, 61, 95, 0.3);
       font-weight: 600;
     }
 
@@ -515,16 +494,15 @@ if (!function_exists('isOrganizer')) {
     }
 
     .latur-badge {
-      background: linear-gradient(135deg, #fef7e6, #fde9c9);
+      background: linear-gradient(135deg, #fef9e7, #fff8e1);
       border-radius: 14px;
       padding: 0.8rem;
       margin: 0 0.5rem 0.5rem;
       display: flex;
       align-items: center;
       gap: 10px;
-      border: 1px solid rgba(201, 168, 76, 0.4);
+      border: 1px solid rgba(249, 184, 27, 0.2);
       transition: transform 0.3s ease;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
     }
 
     .latur-badge:hover {
@@ -539,13 +517,14 @@ if (!function_exists('isOrganizer')) {
     .main-content {
       flex: 1;
       padding: 2rem;
-      background: #f0f4f8;
+      background: linear-gradient(135deg, #f0f4f8 0%, #e8eef4 50%, #f0f4f8 100%);
       overflow-y: auto;
     }
 
+    /* Dropdown menu styling */
     .dropdown-menu {
       border: none;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.12);
       border-radius: 12px;
       padding: 0.5rem;
       animation: fadeInDown 0.2s ease;
@@ -564,30 +543,37 @@ if (!function_exists('isOrganizer')) {
     }
 
     .dropdown-item:hover {
-      background: #e2ecf7;
+      background: #eef6ff;
       transform: translateX(4px);
     }
 
-    /* ===== RESPONSIVE ===== */
-    @media (max-width: 1100px) {
-      .header-center .main-title {
-        font-size: 0.95rem;
+    @media (max-width: 750px) {
+      .header {
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+        padding: 0.6rem 1rem;
       }
-      .header-center .portal-name {
-        font-size: 0.65rem;
+      .sidebar-toggle-btn {
+        display: inline-flex;
       }
-    }
-
-    @media (max-width: 992px) {
-      .header-center .main-title {
-        font-size: 0.85rem;
+      .sidebar {
+        position: fixed;
+        left: -280px;
+        top: 0;
+        height: 100vh;
+        z-index: 200;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.15);
       }
-      .header-center .portal-name {
-        font-size: 0.6rem;
+      .sidebar.sidebar-open {
+        left: 0;
       }
-      .header-center .marathi-text {
-        font-size: 0.5rem;
+      .nav-link span {
+        display: inline;
       }
+      .header-actions .date-badge span { display: none; }
+      .header-actions .date-badge i { margin: 0; }
+      .title-section h1 { font-size: 1.2rem; }
     }
 
     @media (max-width: 768px) {
@@ -652,17 +638,15 @@ if (!function_exists('isOrganizer')) {
 <body>
   <!-- NEW HEADER - EXACTLY MATCHING YOUR IMAGE -->
   <header class="header">
-    <!-- Left Section: Toggle + Emblem + Title -->
-    <div class="header-left">
+    <div class="d-flex align-items-center gap-3">
       <?php if ($isLoggedIn): ?>
       <button class="sidebar-toggle-btn" id="sidebarToggle" aria-label="Toggle sidebar">
         <i class="fas fa-bars"></i>
       </button>
       <?php endif; ?>
-      <div class="logo-area d-flex align-items-center gap-2">
+      <div class="logo-area">
         <img class="district-emblem" src="<?php echo $basePath; ?>/assets/photo_1763098684.jpg" alt="Latur Municipal Corporation logo">
         <div class="title-section">
-          <span class="government-text"><i class="fas fa-flag"></i> Government of Maharashtra</span>
           <h1>Latur District</h1>
           <div class="subtitle">
             <i class="fas fa-map-pin"></i> Meeting & Task Planner

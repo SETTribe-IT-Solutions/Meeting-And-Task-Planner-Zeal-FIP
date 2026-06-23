@@ -300,4 +300,214 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // ═══════════════════════════════════════
+    // 10. OPEN 'ASSIGN TASK' MODAL FROM MEETINGS LIST
+    // Prefill meeting, assignee (organizer), and due date
+    // ═══════════════════════════════════════
+    document.querySelectorAll('.open-add-task-modal').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var meetingId = this.getAttribute('data-meeting-id');
+            var meetingDate = this.getAttribute('data-meeting-date');
+            var organizerId = this.getAttribute('data-organizer-id');
+            var meetingTitle = this.getAttribute('data-meeting-title');
+
+            var modalEl = document.getElementById('addTaskModal');
+            if (!modalEl) return;
+
+            // Set meeting select
+            var meetingSelect = modalEl.querySelector('#modal_meeting_id');
+            if (meetingSelect) {
+                meetingSelect.value = meetingId || '';
+            }
+
+            // Set due date to meeting date (if valid)
+            var dueInput = modalEl.querySelector('#modal_due_date');
+            if (dueInput && meetingDate) {
+                dueInput.value = meetingDate;
+            }
+
+            // Prefer to preselect organizer as assignee if present in list
+            var assigneeSelect = modalEl.querySelector('#modal_assigned_to');
+            if (assigneeSelect && organizerId) {
+                var opt = assigneeSelect.querySelector('option[value="' + organizerId + '"]');
+                if (opt) assigneeSelect.value = organizerId;
+            }
+
+            // Set department and populate assignees for that department
+            var meetingDept = this.getAttribute('data-meeting-department');
+            var deptSelect = modalEl.querySelector('#modal_department_select');
+            if (deptSelect && meetingDept) {
+                deptSelect.value = meetingDept;
+                var modalAssignee = modalEl.querySelector('#modal_assigned_to');
+                populateUsersForDepartment(meetingDept, modalAssignee, organizerId ? [organizerId] : []);
+            }
+
+            // Pre-fill title template
+            var titleInput = modalEl.querySelector('#modal_task_title');
+            if (titleInput) {
+                titleInput.value = meetingTitle ? ('Follow-up: ' + meetingTitle) : '';
+            }
+
+            var modal = new bootstrap.Modal(modalEl);
+            modal.show();
+
+            // Focus the title input when modal is fully shown
+            modalEl.addEventListener('shown.bs.modal', function () {
+                if (titleInput) {
+                    setTimeout(function () { titleInput.focus(); }, 50);
+                }
+            }, { once: true });
+        });
+    });
+
+    // Handle modal form submission via AJAX
+    var addTaskModalEl = document.getElementById('addTaskModal');
+    if (addTaskModalEl) {
+        var modalForm = addTaskModalEl.querySelector('form');
+        modalForm && modalForm.addEventListener('submit', function (ev) {
+            ev.preventDefault();
+            var action = modalForm.getAttribute('action') || window.location.href;
+            var formData = new FormData(modalForm);
+            formData.append('ajax', '1');
+
+            fetch(action, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            }).then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data && data.success) {
+                    // Close modal
+                    var bsModal = bootstrap.Modal.getInstance(addTaskModalEl);
+                    if (bsModal) bsModal.hide();
+
+                    // Show success alert
+                    var alert = document.createElement('div');
+                    alert.className = 'alert alert-success alert-dismissible fade show rounded-3 mt-3';
+                    alert.role = 'alert';
+                    alert.innerHTML = (data.message || 'Task created.') + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                    var container = document.querySelector('.main-content') || document.body;
+                    container.insertBefore(alert, container.firstChild);
+
+                    // If tasks table exists on this page, refresh it via AJAX
+                    var tasksWrapper = document.getElementById('tasksTableWrapper');
+                    if (tasksWrapper) {
+                        // Fetch updated tasks JSON
+                        fetch('../tasks/index.php?ajax=1', { credentials: 'same-origin' })
+                        .then(function (r) { return r.json(); })
+                        .then(function (tasks) {
+                            // Rebuild tbody
+                            var tbody = tasksWrapper.querySelector('tbody');
+                            if (!tbody) return;
+                            tbody.innerHTML = '';
+                            tasks.forEach(function (task) {
+                                var tr = document.createElement('tr');
+                                var dueDate = new Date(task.due_date);
+                                var dueText = isNaN(dueDate.getTime()) ? '' : dueDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                    tr.innerHTML = '\\
+                                        <td>#' + escapeHtml(task.id) + '</td>\\n\\
+                                        <td>\\n\\
+                                            <div class="fw-bold text-dark">' + escapeHtml(task.title) + '</div>\\n\\
+                                            <small class="text-muted d-block">' + escapeHtml(task.notes || '') + '</small>\\n\\
+                                        </td>\\n\\
+                                        <td><span class="badge bg-light text-dark border">' + escapeHtml(task.meeting_department || '') + '</span></td>\\n\\
+                                        <td>\\n\\
+                                            <div class="fw-semibold">' + escapeHtml(task.assignees || '') + '</div>\\n\\
+                                        </td>\\n\\
+                                        <td>\\n\\
+                                            <div class="fw-semibold">' + escapeHtml(task.organizer_name || '') + '</div>\\n\\
+                                        </td>\\n\\
+                                        <td>\\n\\
+                                            <a href="../meetings/view.php?id=' + encodeURIComponent(task.meeting_id) + '" class="text-decoration-none fw-semibold">' + escapeHtml(task.meeting_title || '') + '</a>\\n\\
+                                        </td>\\n\\
+                                        <td>\\n\\
+                                            <span>' + escapeHtml(dueText) + '</span>\\n\\
+                                        </td>\\n\\
+                                        <td>\\n\\
+                                            <span class="badge ' + (task.priority === 'High' ? 'badge-priority-high' : (task.priority === 'Medium' ? 'badge-priority-medium' : 'badge-priority-low')) + '">' + escapeHtml(task.priority || '') + '</span>\\n\\
+                                        </td>\\n\\
+                                        <td>\\n\\
+                                            <span class="badge">' + escapeHtml(task.status || '') + '</span>\\n\\
+                                        </td>\\n\\
+                                        <td class="text-end">\\n\\
+                                            <a href="create.php?id=' + encodeURIComponent(task.id) + '" class="btn btn-sm btn-outline-secondary me-1">Edit</a>\\n\\
+                                            <a href="view.php?id=' + encodeURIComponent(task.id) + '" class="btn btn-sm btn-outline-primary me-1">View</a>\\n\\
+                                            <a href="../../controllers/DeleteTaskController.php?id=' + encodeURIComponent(task.id) + '" class="btn btn-sm btn-outline-danger">Delete</a>\\n\\
+                                        </td>';
+                                tbody.appendChild(tr);
+                            });
+                        }).catch(function () { /* ignore refresh errors */ });
+                    }
+
+                } else {
+                    var msg = (data && data.message) ? data.message : 'Unable to create task.';
+                    var alert = document.createElement('div');
+                    alert.className = 'alert alert-danger alert-dismissible fade show rounded-3 mt-3';
+                    alert.role = 'alert';
+                    alert.innerHTML = msg + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                    var container = document.querySelector('.main-content') || document.body;
+                    container.insertBefore(alert, container.firstChild);
+                }
+            }).catch(function () {
+                var alert = document.createElement('div');
+                alert.className = 'alert alert-danger alert-dismissible fade show rounded-3 mt-3';
+                alert.role = 'alert';
+                alert.innerHTML = 'Network error while creating task.' + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                var container = document.querySelector('.main-content') || document.body;
+                container.insertBefore(alert, container.firstChild);
+            });
+        });
+    }
+
+    // Simple HTML escape helper
+    function escapeHtml(str) {
+        return String(str || '').replace(/[&<>"'`]/g, function (s) {
+            return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;","`":"&#96;"})[s];
+        });
+    }
+
+    // Helper to determine controller path relative to current page
+    function getUsersByDeptPath() {
+        var path = window.location.pathname;
+        if (path.indexOf('/modules/meetings/') !== -1) return '../../controllers/GetUsersByDepartment.php';
+        if (path.indexOf('/modules/tasks/') !== -1) return '../controllers/GetUsersByDepartment.php';
+        return '/controllers/GetUsersByDepartment.php';
+    }
+
+    function populateUsersForDepartment(department, selectEl, preselected) {
+        if (!department || !selectEl) return;
+        selectEl.innerHTML = '';
+        var url = getUsersByDeptPath() + '?department=' + encodeURIComponent(department);
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (users) {
+                users.forEach(function (u) {
+                    var opt = document.createElement('option');
+                    opt.value = u.id;
+                    opt.textContent = u.name + ' (' + u.email + ')';
+                    selectEl.appendChild(opt);
+                });
+                if (preselected && preselected.length) {
+                    try { selectEl.value = preselected; } catch (e) { /* ignore */ }
+                }
+            }).catch(function () { /* ignore fetch errors */ });
+    }
+
+    // Wire up department selects if present on page
+    ['department_select', 'modal_department_select'].forEach(function (id) {
+        var deptEl = document.getElementById(id);
+        if (!deptEl) return;
+        deptEl.addEventListener('change', function () {
+            var dept = this.value;
+            var targetId = id === 'modal_department_select' ? 'modal_assigned_to' : 'assigned_to_select';
+            var selectEl = document.getElementById(targetId);
+            populateUsersForDepartment(dept, selectEl, []);
+        });
+    });
+
 });

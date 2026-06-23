@@ -17,6 +17,24 @@ $meetings = $meetingRes->fetch_all(MYSQLI_ASSOC);
 
 $userRes = $conn->query('SELECT id, name, email FROM users WHERE isDeleted = "No" ORDER BY name');
 $users = $userRes->fetch_all(MYSQLI_ASSOC);
+// Preselect meeting if provided
+$prefillMeetingId = isset($_GET['meeting_id']) ? (int)$_GET['meeting_id'] : 0;
+// If prefill meeting provided, fetch its department and department users
+$prefillDepartment = '';
+$prefillDeptUsers = [];
+if ($prefillMeetingId > 0) {
+    $mstmt = $conn->prepare('SELECT department FROM meetings WHERE id = ?');
+    $mstmt->bind_param('i', $prefillMeetingId);
+    $mstmt->execute();
+    $mres = $mstmt->get_result()->fetch_assoc();
+    if ($mres && !empty($mres['department'])) {
+        $prefillDepartment = $mres['department'];
+        $ustmt = $conn->prepare('SELECT id, name, email FROM users WHERE department = ? AND isDeleted = "No" ORDER BY name');
+        $ustmt->bind_param('s', $prefillDepartment);
+        $ustmt->execute();
+        $prefillDeptUsers = $ustmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    }
+}
 ?>
 
 <div class="row justify-content-center animate-on-scroll">
@@ -38,7 +56,7 @@ $users = $userRes->fetch_all(MYSQLI_ASSOC);
                             <select name="meeting_id" class="form-select rounded-3" required>
                                 <option value="">Select meeting</option>
                                 <?php foreach ($meetings as $meeting): ?>
-                                    <option value="<?php echo (int)$meeting['id']; ?>"><?php echo htmlspecialchars($meeting['title']); ?></option>
+                                    <option value="<?php echo (int)$meeting['id']; ?>" <?php echo $prefillMeetingId === (int)$meeting['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($meeting['title']); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -47,13 +65,28 @@ $users = $userRes->fetch_all(MYSQLI_ASSOC);
                             <input type="text" name="title" class="form-control rounded-3" required placeholder="e.g., Prepare financial report">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Assigned To Employee</label>
-                            <select name="assigned_to" class="form-select rounded-3" required>
-                                <option value="">Select user</option>
-                                <?php foreach ($users as $user): ?>
-                                    <option value="<?php echo (int)$user['id']; ?>"><?php echo htmlspecialchars($user['name']) . ' (' . htmlspecialchars($user['email']) . ')'; ?></option>
-                                <?php endforeach; ?>
+                            <label class="form-label">Department</label>
+                            <select name="department" id="department_select" class="form-select rounded-3" required>
+                                <option value="">Select department</option>
+                                <?php
+                                    $deptRes = $conn->query('SELECT id, name FROM departments WHERE is_active = "Yes" ORDER BY name');
+                                    $depts = $deptRes ? $deptRes->fetch_all(MYSQLI_ASSOC) : [];
+                                    foreach ($depts as $d):
+                                    ?>
+                                        <option value="<?php echo htmlspecialchars($d['name']); ?>" <?php echo ($prefillDepartment === $d['name']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($d['name']); ?></option>
+                                    <?php endforeach; ?>
                             </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Assign To (Department Employees)</label>
+                            <select name="assigned_to[]" id="assigned_to_select" class="form-select rounded-3" multiple required style="min-height:120px;">
+                                <?php if (!empty($prefillDeptUsers)): ?>
+                                    <?php foreach ($prefillDeptUsers as $pu): ?>
+                                        <option value="<?php echo (int)$pu['id']; ?>"><?php echo htmlspecialchars($pu['name']) . ' (' . htmlspecialchars($pu['email']) . ')'; ?></option>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </select>
+                            <small class="text-muted">Select one or more employees from the chosen department.</small>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Due Date</label>
