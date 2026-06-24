@@ -30,32 +30,89 @@ $userRole = $_SESSION['role'] ?? '';
 
 $basePath = defined('APP_URL') ? APP_URL : '';
 $currentLang = $_SESSION['lang'] ?? 'en';
+$currentPath = $_SERVER['PHP_SELF'] ?? '';
+$today = date('Y-m-d');
+$notificationItems = [];
+$notificationCount = 0;
+$nextMeetingText = 'No upcoming meetings';
+$tasksDueTodayText = '0 tasks due today';
 
-// Helper function to get user name from database
-function getUserNameFromDatabase($userId) {
-    global $conn;
+if ($isLoggedIn) {
     try {
-        $stmt = $conn->prepare("SELECT full_name, username FROM users WHERE id = ?");
-        $stmt->execute([$userId]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($user) {
-            $_SESSION['full_name'] = $user['full_name'] ?? $user['username'] ?? 'User';
-            return $_SESSION['full_name'];
-        }
-    } catch (Exception $e) {
-        error_log("Error fetching user name: " . $e->getMessage());
-    }
-    return 'User';
-}
+        $headerConn = getDBConnection();
+        $userId = (int)($_SESSION['user_id'] ?? 0);
+        $userDepartment = $_SESSION['department'] ?? '';
+        $nowTime = date('H:i:s');
 
-// Check if isOrganizer function already exists before declaring
-if (!function_exists('isOrganizer')) {
-    function isOrganizer() {
-        if (!isset($_SESSION['role'])) {
-            return false;
+        if ($userRole === 'Collector') {
+            $stmt = $headerConn->prepare("SELECT COUNT(*) AS total FROM tasks WHERE due_date = ? AND status <> 'Completed'");
+            $stmt->bind_param('s', $today);
+        } elseif ($userRole === 'Organizer') {
+            $stmt = $headerConn->prepare("SELECT COUNT(*) AS total FROM tasks t JOIN meetings m ON t.meeting_id = m.id WHERE m.organizer_id = ? AND t.due_date = ? AND t.status <> 'Completed'");
+            $stmt->bind_param('is', $userId, $today);
+        } else {
+            $stmt = $headerConn->prepare("SELECT COUNT(*) AS total FROM tasks WHERE assigned_to = ? AND due_date = ? AND status <> 'Completed'");
+            $stmt->bind_param('is', $userId, $today);
         }
-        $organizerRoles = ['organizer', 'admin', 'super_admin', 'Administrator', 'admin'];
-        return in_array(strtolower($_SESSION['role']), array_map('strtolower', $organizerRoles));
+
+        if ($stmt) {
+            $stmt->execute();
+            $dueTasksToday = (int)($stmt->get_result()->fetch_assoc()['total'] ?? 0);
+            $tasksDueTodayText = $dueTasksToday . ' task' . ($dueTasksToday === 1 ? '' : 's') . ' due today';
+            if ($dueTasksToday > 0) {
+                $notificationItems[] = [
+                    'icon' => 'fas fa-check-circle text-success',
+                    'text' => $tasksDueTodayText,
+                    'href' => $basePath . '/modules/tasks/index.php'
+                ];
+            }
+        }
+
+        if ($userRole === 'Collector') {
+            $stmt = $headerConn->prepare("SELECT COUNT(*) AS total FROM meetings WHERE meeting_date = ? AND status <> 'Cancelled'");
+            $stmt->bind_param('s', $today);
+        } elseif ($userRole === 'Organizer') {
+            $stmt = $headerConn->prepare("SELECT COUNT(*) AS total FROM meetings WHERE organizer_id = ? AND meeting_date = ? AND status <> 'Cancelled'");
+            $stmt->bind_param('is', $userId, $today);
+        } else {
+            $stmt = $headerConn->prepare("SELECT COUNT(DISTINCT m.id) AS total FROM meetings m LEFT JOIN attendance a ON a.meeting_id = m.id WHERE (m.department = ? OR a.user_id = ?) AND m.meeting_date = ? AND m.status <> 'Cancelled'");
+            $stmt->bind_param('sis', $userDepartment, $userId, $today);
+        }
+
+        if ($stmt) {
+            $stmt->execute();
+            $meetingsToday = (int)($stmt->get_result()->fetch_assoc()['total'] ?? 0);
+            if ($meetingsToday > 0) {
+                $notificationItems[] = [
+                    'icon' => 'fas fa-calendar-check text-primary',
+                    'text' => $meetingsToday . ' meeting' . ($meetingsToday === 1 ? '' : 's') . ' scheduled today',
+                    'href' => $basePath . '/modules/meetings/index.php'
+                ];
+            }
+        }
+
+        if ($userRole === 'Collector') {
+            $stmt = $headerConn->prepare("SELECT id, title, meeting_date, meeting_time FROM meetings WHERE status <> 'Cancelled' AND (meeting_date > ? OR (meeting_date = ? AND meeting_time >= ?)) ORDER BY meeting_date ASC, meeting_time ASC LIMIT 1");
+            $stmt->bind_param('sss', $today, $today, $nowTime);
+        } elseif ($userRole === 'Organizer') {
+            $stmt = $headerConn->prepare("SELECT id, title, meeting_date, meeting_time FROM meetings WHERE organizer_id = ? AND status <> 'Cancelled' AND (meeting_date > ? OR (meeting_date = ? AND meeting_time >= ?)) ORDER BY meeting_date ASC, meeting_time ASC LIMIT 1");
+            $stmt->bind_param('isss', $userId, $today, $today, $nowTime);
+        } else {
+            $stmt = $headerConn->prepare("SELECT DISTINCT m.id, m.title, m.meeting_date, m.meeting_time FROM meetings m LEFT JOIN attendance a ON a.meeting_id = m.id WHERE (m.department = ? OR a.user_id = ?) AND m.status <> 'Cancelled' AND (m.meeting_date > ? OR (m.meeting_date = ? AND m.meeting_time >= ?)) ORDER BY m.meeting_date ASC, m.meeting_time ASC LIMIT 1");
+            $stmt->bind_param('sisss', $userDepartment, $userId, $today, $today, $nowTime);
+        }
+
+        if ($stmt) {
+            $stmt->execute();
+            $nextMeeting = $stmt->get_result()->fetch_assoc();
+            if ($nextMeeting) {
+                $nextMeetingText = formatTime12Hour($nextMeeting['meeting_time']) . ' - ' . $nextMeeting['title'];
+            }
+        }
+
+        $notificationCount = count($notificationItems);
+    } catch (Throwable $e) {
+        error_log('Header summary failed: ' . $e->getMessage());
     }
 }
 ?>
@@ -324,9 +381,10 @@ if (!function_exists('isOrganizer')) {
     .user-profile {
       display: flex;
       align-items: center;
-      gap: 8px;
-      background: rgba(255, 255, 255, 0.08);
-      padding: 0.25rem 0.8rem 0.25rem 0.6rem;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 0;
+      padding: 0.4rem 1rem;
       border-radius: 30px;
       cursor: pointer;
       transition: all 0.3s ease;
@@ -350,15 +408,27 @@ if (!function_exists('isOrganizer')) {
       font-size: 0.8rem;
     }
 
+    .user-profile.dropdown-toggle::after,
+    .notification-icon.dropdown-toggle::after {
+      display: none;
+    }
+
     .notification-icon {
       position: relative;
       font-size: 1.1rem;
       cursor: pointer;
       transition: transform 0.3s ease;
+      background: transparent;
+      border: 0;
+      color: white;
+      padding: 0.25rem;
     }
 
-    .notification-icon:hover {
+    .notification-icon:hover,
+    .notification-icon:focus {
       transform: scale(1.15);
+      color: white;
+      outline: none;
     }
 
     .notification-badge {
@@ -376,6 +446,16 @@ if (!function_exists('isOrganizer')) {
       justify-content: center;
       font-weight: bold;
       animation: pulse 2s ease-in-out infinite;
+    }
+
+    .notification-menu {
+      min-width: 290px;
+      max-width: 340px;
+    }
+
+    .notification-menu .dropdown-item {
+      white-space: normal;
+      line-height: 1.35;
     }
 
     @keyframes pulse {
@@ -397,6 +477,10 @@ if (!function_exists('isOrganizer')) {
     }
     .sidebar-toggle-btn:hover {
       background: rgba(255,255,255,0.3);
+    }
+
+    .sidebar-backdrop {
+      display: none;
     }
 
     /* ===== SIDEBAR ===== */
@@ -568,6 +652,13 @@ if (!function_exists('isOrganizer')) {
       .sidebar.sidebar-open {
         left: 0;
       }
+      .sidebar-backdrop.show {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.35);
+        z-index: 150;
+      }
       .nav-link span {
         display: inline;
       }
@@ -640,11 +731,11 @@ if (!function_exists('isOrganizer')) {
   <header class="header">
     <div class="d-flex align-items-center gap-3">
       <?php if ($isLoggedIn): ?>
-      <button class="sidebar-toggle-btn" id="sidebarToggle" aria-label="Toggle sidebar">
+      <button class="sidebar-toggle-btn" id="sidebarToggle" type="button" aria-label="Toggle sidebar" aria-controls="appSidebar" aria-expanded="false">
         <i class="fas fa-bars"></i>
       </button>
       <?php endif; ?>
-      <div class="logo-area">
+      <a class="logo-area text-white text-decoration-none" href="<?php echo $isLoggedIn ? $basePath . '/index.php' : $basePath . '/modules/users/login.php'; ?>" aria-label="Go to <?php echo $isLoggedIn ? 'dashboard' : 'login page'; ?>">
         <img class="district-emblem" src="<?php echo $basePath; ?>/assets/photo_1763098684.jpg" alt="Latur Municipal Corporation logo">
         <div class="title-section">
           <h1>Latur District</h1>
@@ -652,7 +743,7 @@ if (!function_exists('isOrganizer')) {
             <i class="fas fa-map-pin"></i> Meeting & Task Planner
           </div>
         </div>
-      </div>
+      </a>
     </div>
 
     <!-- Center Section: Main Government Title - EXACTLY AS IN IMAGE -->
@@ -676,17 +767,45 @@ if (!function_exists('isOrganizer')) {
         <i class="far fa-calendar-alt"></i>
         <span id="liveDate"></span>
       </div>
-      <div class="notification-icon">
-        <i class="far fa-bell"></i>
-        <span class="notification-badge">3</span>
+      <div class="dropdown">
+        <button type="button" class="notification-icon dropdown-toggle" id="notificationDropdown" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" aria-label="View notifications">
+          <i class="far fa-bell"></i>
+          <?php if ($notificationCount > 0): ?>
+            <span class="notification-badge"><?php echo $notificationCount > 9 ? '9+' : $notificationCount; ?></span>
+          <?php endif; ?>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end notification-menu shadow border-0" aria-labelledby="notificationDropdown">
+          <li><h6 class="dropdown-header">Notifications</h6></li>
+          <?php if (!$isLoggedIn): ?>
+            <li><span class="dropdown-item-text text-muted small">Log in to view meeting and task notifications.</span></li>
+          <?php elseif (!empty($notificationItems)): ?>
+            <?php foreach ($notificationItems as $item): ?>
+              <li>
+                <a class="dropdown-item d-flex align-items-start gap-2" href="<?php echo htmlspecialchars($item['href']); ?>">
+                  <i class="<?php echo htmlspecialchars($item['icon']); ?> mt-1"></i>
+                  <span><?php echo htmlspecialchars($item['text']); ?></span>
+                </a>
+              </li>
+            <?php endforeach; ?>
+          <?php else: ?>
+            <li><span class="dropdown-item-text text-muted small">No urgent notifications for today.</span></li>
+          <?php endif; ?>
+          <li><hr class="dropdown-divider"></li>
+          <?php if ($isLoggedIn): ?>
+            <li><a class="dropdown-item" href="<?php echo $basePath; ?>/modules/tasks/index.php"><i class="fas fa-list-check me-2"></i> View all tasks</a></li>
+            <li><a class="dropdown-item" href="<?php echo $basePath; ?>/modules/meetings/index.php"><i class="fas fa-calendar-days me-2"></i> View all meetings</a></li>
+          <?php else: ?>
+            <li><a class="dropdown-item" href="<?php echo $basePath; ?>/modules/users/login.php"><i class="fas fa-sign-in-alt me-2"></i> Login</a></li>
+          <?php endif; ?>
+        </ul>
       </div>
       <?php if ($isLoggedIn): ?>
       <div class="dropdown">
-          <a href="#" class="user-profile dropdown-toggle text-decoration-none" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+          <button type="button" class="user-profile dropdown-toggle text-decoration-none" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
             <i class="fas fa-user-circle"></i>
             <span><?php echo htmlspecialchars($userName); ?></span>
-            <i class="fas fa-chevron-down ms-1" style="font-size: 0.5rem; opacity: 0.7;"></i>
-          </a>
+            <i class="fas fa-chevron-down ms-1" style="font-size: 0.7rem;"></i>
+          </button>
           <ul class="dropdown-menu dropdown-menu-end shadow border-0" aria-labelledby="userDropdown">
             <li><a class="dropdown-item" href="<?php echo $basePath; ?>/modules/users/profile.php"><i class="fas fa-user me-2"></i> Profile</a></li>
             <li><hr class="dropdown-divider"></li>
@@ -706,51 +825,51 @@ if (!function_exists('isOrganizer')) {
   <div class="app-container">
     <?php if ($isLoggedIn): ?>
     <!-- SIDEBAR -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="appSidebar">
       <div class="latur-badge">
         <i class="fas fa-city"></i>
         <span><strong>Latur Division</strong><br><small>Maharashtra</small></span>
       </div>
       <ul class="nav-menu">
         <li class="nav-item">
-          <a href="<?php echo $basePath; ?>/index.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>">
+          <a href="<?php echo $basePath; ?>/index.php" class="nav-link <?php echo basename($currentPath) == 'index.php' ? 'active' : ''; ?>" <?php echo basename($currentPath) == 'index.php' ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-tachometer-alt"></i>
             <span>Dashboard</span>
           </a>
         </li>
         <li class="nav-item">
-          <a href="<?php echo $basePath; ?>/modules/meetings/index.php" class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'meetings') !== false ? 'active' : ''; ?>">
+          <a href="<?php echo $basePath; ?>/modules/meetings/index.php" class="nav-link <?php echo strpos($currentPath, 'meetings') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'meetings') !== false ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-calendar-check"></i>
             <span>Meetings</span>
           </a>
         </li>
         <li class="nav-item">
-          <a href="<?php echo $basePath; ?>/modules/tasks/index.php" class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'tasks') !== false ? 'active' : ''; ?>">
+          <a href="<?php echo $basePath; ?>/modules/tasks/index.php" class="nav-link <?php echo strpos($currentPath, 'tasks') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'tasks') !== false ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-tasks"></i>
             <span>Tasks</span>
           </a>
         </li>
         <li class="nav-item">
-          <a href="<?php echo $basePath; ?>/modules/attendance/index.php" class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'attendance') !== false ? 'active' : ''; ?>">
+          <a href="<?php echo $basePath; ?>/modules/attendance/index.php" class="nav-link <?php echo strpos($currentPath, 'attendance') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'attendance') !== false ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-users"></i>
             <span>Attendance</span>
           </a>
         </li>
         <li class="nav-item">
-          <a href="<?php echo $basePath; ?>/modules/reports/index.php" class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'reports') !== false ? 'active' : ''; ?>">
+          <a href="<?php echo $basePath; ?>/modules/reports/index.php" class="nav-link <?php echo strpos($currentPath, 'reports') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'reports') !== false ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-chart-bar"></i>
             <span>Reports</span>
           </a>
         </li>
         <?php if (function_exists('isOrganizer') && isOrganizer()): ?>
         <li class="nav-item">
-          <a href="<?php echo $basePath; ?>/modules/users/index.php" class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'users/index') !== false ? 'active' : ''; ?>">
+          <a href="<?php echo $basePath; ?>/modules/users/index.php" class="nav-link <?php echo strpos($currentPath, 'users/index') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'users/index') !== false ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-user-cog"></i>
             <span>Users</span>
           </a>
         </li>
         <li class="nav-item">
-          <a href="<?php echo $basePath; ?>/modules/departments/index.php" class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'departments') !== false ? 'active' : ''; ?>">
+          <a href="<?php echo $basePath; ?>/modules/departments/index.php" class="nav-link <?php echo strpos($currentPath, 'departments') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'departments') !== false ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-building"></i>
             <span>Departments</span>
           </a>
@@ -760,14 +879,15 @@ if (!function_exists('isOrganizer')) {
       <div class="sidebar-footer">
         <div style="display: flex; align-items: center; gap: 6px; padding: 0 0.5rem;">
           <i class="fas fa-clock"></i>
-          <span>Next meeting: 10:30 AM</span>
+          <span>Next meeting: <?php echo htmlspecialchars($nextMeetingText); ?></span>
         </div>
         <div style="display: flex; align-items: center; gap: 6px; padding: 0 0.5rem;">
           <i class="fas fa-check-circle" style="color: #16a34a;"></i>
-          <span>4 tasks due today</span>
+          <span><?php echo htmlspecialchars($tasksDueTodayText); ?></span>
         </div>
       </div>
     </aside>
+    <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
     <?php endif; ?>
 
     <!-- MAIN CONTENT AREA -->

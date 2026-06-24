@@ -71,6 +71,74 @@ unset($_SESSION['error'], $_SESSION['success']);
             flex-direction: column;
         }
 
+        body.theme-dark {
+            --navy-primary: #0f172a;
+            --navy-dark: #020617;
+            --navy-light: #1e293b;
+            --bg-cream: #111827;
+            --bg-body: #0f172a;
+            --link-blue: #93c5fd;
+            --border-gray: #475569;
+            --text-dark: #f8fafc;
+            --text-muted: #cbd5e1;
+            --header-gradient: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+            background:
+                linear-gradient(rgba(15,23,42,0.9), rgba(15,23,42,0.9)),
+                url('../../assets/image_e15bb67f.png') center / cover fixed no-repeat;
+        }
+
+        body.theme-contrast {
+            --navy-primary: #000000;
+            --navy-dark: #000000;
+            --navy-light: #111111;
+            --gov-maroon: #000000;
+            --gold-accent: #ffff00;
+            --bg-cream: #000000;
+            --bg-body: #000000;
+            --link-blue: #ffff00;
+            --border-gray: #ffffff;
+            --text-dark: #ffffff;
+            --text-muted: #ffffff;
+            --header-gradient: linear-gradient(180deg, #000000 0%, #111111 100%);
+            background: #000000;
+        }
+
+        body.theme-dark .accessibility-bar,
+        body.theme-dark .login-card,
+        body.theme-dark .demo-box,
+        body.theme-dark .gov-input-wrap,
+        body.theme-dark .captcha-display,
+        body.theme-dark .captcha-input input,
+        body.theme-dark .welcome-banner {
+            background: #111827;
+            border-color: #475569;
+            color: var(--text-dark);
+        }
+
+        body.theme-contrast .accessibility-bar,
+        body.theme-contrast .login-card,
+        body.theme-contrast .demo-box,
+        body.theme-contrast .gov-input-wrap,
+        body.theme-contrast .captcha-display,
+        body.theme-contrast .captcha-input input,
+        body.theme-contrast .welcome-banner {
+            background: #000000;
+            border-color: #ffffff;
+            color: #ffffff;
+        }
+
+        body.theme-dark input,
+        body.theme-contrast input {
+            background: transparent;
+            color: var(--text-dark);
+        }
+
+        body.theme-dark .demo-row code,
+        body.theme-contrast .demo-row code {
+            background: var(--navy-light);
+            color: var(--text-dark);
+        }
+
         a { color: var(--link-blue); text-decoration: none; }
         a:hover { text-decoration: underline; }
 
@@ -144,6 +212,8 @@ unset($_SESSION['error'], $_SESSION['success']);
             transition: transform 0.2s;
         }
         .theme-btn:hover { transform: scale(1.15); }
+        .theme-btn.active { outline: 2px solid var(--navy-primary); outline-offset: 2px; }
+        body.theme-contrast .theme-btn.active { outline-color: #fff; }
         .theme-btn.t-default { background: #fff; }
         .theme-btn.t-dark { background: #333; }
         .theme-btn.t-contrast { background: #000; border-color: #FFD700; }
@@ -1021,18 +1091,18 @@ unset($_SESSION['error'], $_SESSION['success']);
     <!-- ══════ NAVIGATION BAR ══════ -->
     <nav class="gov-nav">
         <div class="nav-inner">
-            <a href="#" class="nav-link-item active"><i class="bi bi-house-door"></i> Home</a>
-            <a href="#" class="nav-link-item"><i class="bi bi-info-circle"></i> About District</a>
-            <a href="#" class="nav-link-item"><i class="bi bi-building"></i> Administration</a>
-            <a href="#" class="nav-link-item"><i class="bi bi-megaphone"></i> Notices</a>
-            <a href="#" class="nav-link-item"><i class="bi bi-file-earmark-text"></i> Reports</a>
-            <a href="#" class="nav-link-item"><i class="bi bi-telephone"></i> Contact</a>
-            <a href="#" class="nav-link-item"><i class="bi bi-question-circle"></i> Help</a>
+            <a href="#main-content" class="nav-link-item active"><i class="bi bi-house-door"></i> Home</a>
+            <a href="#about-district" class="nav-link-item"><i class="bi bi-info-circle"></i> About District</a>
+            <a href="#loginCard" class="nav-link-item"><i class="bi bi-building"></i> Administration</a>
+            <a href="#latest-notices" class="nav-link-item"><i class="bi bi-megaphone"></i> Notices</a>
+            <a href="#demo-reports" class="nav-link-item"><i class="bi bi-file-earmark-text"></i> Reports</a>
+            <a href="#contact-help" class="nav-link-item"><i class="bi bi-telephone"></i> Contact</a>
+            <a href="#contact-help" class="nav-link-item"><i class="bi bi-question-circle"></i> Help</a>
         </div>
     </nav>
 
     <!-- ══════ NEWS TICKER ══════ -->
-    <div class="news-ticker">
+    <div class="news-ticker" id="latest-notices">
         <div class="ticker-inner">
             <span class="ticker-label"><i class="bi bi-megaphone-fill"></i> Latest</span>
             <marquee class="ticker-text" behavior="scroll" direction="left" onmouseover="this.stop();" onmouseout="this.start();">
@@ -1049,7 +1119,7 @@ unset($_SESSION['error'], $_SESSION['success']);
         <main class="login-panel">
 
             <!-- Welcome Banner -->
-            <div class="welcome-banner">
+            <div class="welcome-banner" id="about-district">
                 <div class="marathi-text">जिल्हा प्रशासन लातूर मध्ये आपले स्वागत आहे</div>
                 <h2>Welcome to Latur District Administration Portal</h2>
                 <p>Secure access to Meeting & Task Planner for authorized government officials</p>
@@ -1146,7 +1216,7 @@ unset($_SESSION['error'], $_SESSION['success']);
             </div>
 
             <!-- Demo Credentials -->
-            <div class="demo-box">
+            <div class="demo-box" id="demo-reports">
                 <h6><i class="bi bi-info-circle-fill"></i> Demo Login Credentials</h6>
                 <div class="demo-row">
                     <span class="role-tag">Collector</span>
@@ -1167,7 +1237,7 @@ unset($_SESSION['error'], $_SESSION['success']);
     </div>
 
     <!-- ══════ FOOTER ══════ -->
-    <footer class="gov-footer">
+    <footer class="gov-footer" id="contact-help">
         <div class="footer-inner">
             <div class="footer-top">
                 <div class="footer-col">
@@ -1403,16 +1473,92 @@ unset($_SESSION['error'], $_SESSION['success']);
         });
 
         // ── Accessibility: Font Size ──
-        const fontBtns = [document.getElementById('fontSmall'), document.getElementById('fontDefault'), document.getElementById('fontLarge')];
-        const sizes = ['14px', '16px', '18px'];
+        document.querySelectorAll('.nav-link-item[href^="#"]').forEach(link => {
+            link.addEventListener('click', function(e) {
+                const target = document.querySelector(this.getAttribute('href'));
+                if (!target) return;
 
-        fontBtns.forEach((btn, i) => {
-            btn.addEventListener('click', function() {
-                document.body.style.fontSize = sizes[i];
-                fontBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
+                e.preventDefault();
+                document.querySelectorAll('.nav-link-item').forEach(item => item.classList.remove('active'));
+                this.classList.add('active');
+                target.setAttribute('tabindex', '-1');
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                setTimeout(() => target.focus({ preventScroll: true }), 250);
             });
         });
+
+        const fontBtns = [document.getElementById('fontSmall'), document.getElementById('fontDefault'), document.getElementById('fontLarge')];
+        const sizes = ['14px', '16px', '18px'];
+        const savedFontSize = localStorage.getItem('portalFontSize');
+        const savedFontIndex = sizes.indexOf(savedFontSize);
+
+        function applyFontSize(index) {
+            if (!fontBtns[index]) return;
+            document.body.style.fontSize = sizes[index];
+            localStorage.setItem('portalFontSize', sizes[index]);
+            fontBtns.forEach(b => { if (b) b.classList.remove('active'); });
+            fontBtns[index].classList.add('active');
+        }
+
+        if (savedFontIndex >= 0) {
+            applyFontSize(savedFontIndex);
+        }
+
+        fontBtns.forEach((btn, i) => {
+            if (!btn) return;
+            btn.addEventListener('click', function() {
+                applyFontSize(i);
+            });
+        });
+
+        const themeMap = {
+            default: document.getElementById('themeDefault'),
+            dark: document.getElementById('themeDark'),
+            contrast: document.getElementById('themeContrast')
+        };
+
+        function applyTheme(theme) {
+            const selectedTheme = themeMap[theme] ? theme : 'default';
+            document.body.classList.remove('theme-dark', 'theme-contrast');
+            if (selectedTheme !== 'default') {
+                document.body.classList.add('theme-' + selectedTheme);
+            }
+
+            Object.keys(themeMap).forEach(key => {
+                if (themeMap[key]) themeMap[key].classList.toggle('active', key === selectedTheme);
+            });
+            localStorage.setItem('portalTheme', selectedTheme);
+        }
+
+        Object.keys(themeMap).forEach(theme => {
+            if (!themeMap[theme]) return;
+            themeMap[theme].addEventListener('click', function() {
+                applyTheme(theme);
+            });
+        });
+        applyTheme(localStorage.getItem('portalTheme') || 'default');
+
+        const langBtns = {
+            en: document.getElementById('langEn'),
+            mr: document.getElementById('langMr')
+        };
+
+        function applyLanguage(lang) {
+            const selectedLang = lang === 'mr' ? 'mr' : 'en';
+            document.documentElement.lang = selectedLang;
+            Object.keys(langBtns).forEach(key => {
+                if (langBtns[key]) langBtns[key].classList.toggle('active', key === selectedLang);
+            });
+            localStorage.setItem('portalLang', selectedLang);
+        }
+
+        Object.keys(langBtns).forEach(lang => {
+            if (!langBtns[lang]) return;
+            langBtns[lang].addEventListener('click', function() {
+                applyLanguage(lang);
+            });
+        });
+        applyLanguage(localStorage.getItem('portalLang') || 'en');
 
 
     });

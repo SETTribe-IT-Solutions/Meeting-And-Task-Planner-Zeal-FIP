@@ -269,11 +269,50 @@ document.addEventListener('DOMContentLoaded', function () {
     // ═══════════════════════════════════════
     var sidebarToggle = document.getElementById('sidebarToggle');
     var sidebar = document.querySelector('.sidebar');
+    var sidebarBackdrop = document.getElementById('sidebarBackdrop');
     if (sidebarToggle && sidebar) {
+        var sidebarIcon = sidebarToggle.querySelector('i');
+
+        function setSidebarOpen(isOpen) {
+            sidebar.classList.toggle('sidebar-open', isOpen);
+            if (sidebarBackdrop) sidebarBackdrop.classList.toggle('show', isOpen);
+            sidebarToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+
+            if (sidebarIcon) {
+                sidebarIcon.classList.toggle('fa-bars', !isOpen);
+                sidebarIcon.classList.toggle('fa-times', isOpen);
+            }
+        }
+
         sidebarToggle.addEventListener('click', function () {
-            sidebar.classList.toggle('sidebar-open');
-            this.querySelector('i').classList.toggle('fa-bars');
-            this.querySelector('i').classList.toggle('fa-times');
+            setSidebarOpen(!sidebar.classList.contains('sidebar-open'));
+        });
+
+        if (sidebarBackdrop) {
+            sidebarBackdrop.addEventListener('click', function () {
+                setSidebarOpen(false);
+            });
+        }
+
+        sidebar.querySelectorAll('.nav-link').forEach(function (link) {
+            link.addEventListener('click', function () {
+                if (window.matchMedia('(max-width: 750px)').matches) {
+                    setSidebarOpen(false);
+                }
+            });
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && sidebar.classList.contains('sidebar-open')) {
+                setSidebarOpen(false);
+                sidebarToggle.focus();
+            }
+        });
+
+        window.addEventListener('resize', function () {
+            if (!window.matchMedia('(max-width: 750px)').matches) {
+                setSidebarOpen(false);
+            }
         });
     }
 
@@ -300,6 +339,77 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    var pastDateMessage = 'Past dates are not allowed. Please select today or a future date.';
+
+    function getTodayDateString() {
+        var today = new Date();
+        var year = today.getFullYear();
+        var month = String(today.getMonth() + 1).padStart(2, '0');
+        var day = String(today.getDate()).padStart(2, '0');
+        return year + '-' + month + '-' + day;
+    }
+
+    function validateDueDateInput(input) {
+        if (!input) return true;
+        var minimumDate = getTodayDateString();
+        input.min = minimumDate;
+        if (input.value && input.value < minimumDate) {
+            input.setCustomValidity(input.getAttribute('data-past-date-message') || pastDateMessage);
+            return false;
+        }
+
+        input.setCustomValidity('');
+        return true;
+    }
+
+    function attachDueDateValidation() {
+        var today = getTodayDateString();
+        document.querySelectorAll('input[type="date"][name="due_date"]').forEach(function (input) {
+            input.min = today;
+            if (!input.getAttribute('data-past-date-message')) {
+                input.setAttribute('data-past-date-message', pastDateMessage);
+            }
+
+            if (!input.dataset.dueDateValidationAttached) {
+                input.addEventListener('input', function () {
+                    validateDueDateInput(input);
+                });
+
+                input.addEventListener('change', function () {
+                    if (!validateDueDateInput(input)) {
+                        input.reportValidity();
+                    }
+                });
+
+                input.dataset.dueDateValidationAttached = 'true';
+            }
+
+            var form = input.form;
+            if (form && !form.dataset.dueDateValidationAttached) {
+                form.addEventListener('submit', function (event) {
+                    var invalidDueDate = null;
+                    form.querySelectorAll('input[type="date"][name="due_date"]').forEach(function (dateInput) {
+                        if (!invalidDueDate && !validateDueDateInput(dateInput)) {
+                            invalidDueDate = dateInput;
+                        }
+                    });
+
+                    if (invalidDueDate) {
+                        event.preventDefault();
+                        event.stopImmediatePropagation();
+                        invalidDueDate.reportValidity();
+                    }
+                });
+
+                form.dataset.dueDateValidationAttached = 'true';
+            }
+
+            validateDueDateInput(input);
+        });
+    }
+
+    attachDueDateValidation();
+
     // ═══════════════════════════════════════
     // 10. OPEN 'ASSIGN TASK' MODAL FROM MEETINGS LIST
     // Prefill meeting, assignee (organizer), and due date
@@ -322,10 +432,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 meetingSelect.value = meetingId || '';
             }
 
-            // Set due date to meeting date (if valid)
+            // Set due date to meeting date when possible, without allowing past dates.
             var dueInput = modalEl.querySelector('#modal_due_date');
-            if (dueInput && meetingDate) {
-                dueInput.value = meetingDate;
+            if (dueInput) {
+                var todayDate = getTodayDateString();
+                dueInput.min = todayDate;
+                if (meetingDate) {
+                    dueInput.value = meetingDate < todayDate ? todayDate : meetingDate;
+                }
+                validateDueDateInput(dueInput);
             }
 
             // Prefer to preselect organizer as assignee if present in list
@@ -368,6 +483,13 @@ document.addEventListener('DOMContentLoaded', function () {
         var modalForm = addTaskModalEl.querySelector('form');
         modalForm && modalForm.addEventListener('submit', function (ev) {
             ev.preventDefault();
+            var modalDueInput = modalForm.querySelector('input[type="date"][name="due_date"]');
+            validateDueDateInput(modalDueInput);
+            if (!modalForm.checkValidity()) {
+                modalForm.reportValidity();
+                return;
+            }
+
             var action = modalForm.getAttribute('action') || window.location.href;
             var formData = new FormData(modalForm);
             formData.append('ajax', '1');

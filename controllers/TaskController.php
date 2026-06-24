@@ -5,6 +5,18 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/../config/db.php';
 
+function failTaskCreation(string $message, bool $isAjax): void
+{
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => $message]);
+    } else {
+        $_SESSION['error'] = $message;
+        header('Location: ../modules/tasks/create.php');
+    }
+    exit();
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ../modules/tasks/create.php');
     exit();
@@ -16,12 +28,12 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') || (!empty($_POST['ajax']) && $_POST['ajax'] == '1');
+
 $requiredFields = ['meeting_id', 'title', 'assigned_to', 'due_date', 'priority'];
 foreach ($requiredFields as $field) {
     if (empty($_POST[$field])) {
-        $_SESSION['error'] = 'Please fill in all task details.';
-        header('Location: ../modules/tasks/create.php');
-        exit();
+        failTaskCreation('Please fill in all task details.', $isAjax);
     }
 }
 
@@ -30,6 +42,17 @@ $title = trim($_POST['title']);
 $dueDate = trim($_POST['due_date']);
 $priority = trim($_POST['priority']);
 $notes = trim($_POST['notes'] ?? '');
+
+$dueDateObj = DateTimeImmutable::createFromFormat('!Y-m-d', $dueDate);
+$dateErrors = DateTimeImmutable::getLastErrors();
+$hasDateErrors = $dateErrors !== false && ($dateErrors['warning_count'] > 0 || $dateErrors['error_count'] > 0);
+if (!$dueDateObj || $hasDateErrors) {
+    failTaskCreation('Please select a valid due date.', $isAjax);
+}
+
+if ($dueDateObj < new DateTimeImmutable('today')) {
+    failTaskCreation('Past dates are not allowed. Please select today or a future date.', $isAjax);
+}
 
 // assigned_to can be array (multiple) or single
 $assignedToInput = $_POST['assigned_to'] ?? [];
@@ -73,7 +96,6 @@ try {
     }
 
     // If request is AJAX, return JSON
-    $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') || (!empty($_POST['ajax']) && $_POST['ajax'] == '1');
     if ($isAjax) {
         header('Content-Type: application/json');
         echo json_encode(['success' => true, 'message' => 'Task created successfully.', 'task_id' => $insertId]);
@@ -85,7 +107,6 @@ try {
     exit();
 } catch (Exception $e) {
     error_log('Task creation failed: ' . $e->getMessage());
-    $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') || (!empty($_POST['ajax']) && $_POST['ajax'] == '1');
     if ($isAjax) {
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'message' => 'Unable to create task right now.'] );
