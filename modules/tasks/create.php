@@ -17,6 +17,7 @@ $meetings = $meetingRes->fetch_all(MYSQLI_ASSOC);
 
 $userRes = $conn->query('SELECT id, name, email FROM users WHERE isDeleted = "No" ORDER BY name');
 $users = $userRes->fetch_all(MYSQLI_ASSOC);
+$today = date('Y-m-d');
 // Preselect meeting if provided
 $prefillMeetingId = isset($_GET['meeting_id']) ? (int)$_GET['meeting_id'] : 0;
 // If prefill meeting provided, fetch its department and department users
@@ -90,7 +91,7 @@ if ($prefillMeetingId > 0) {
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Due Date</label>
-                            <input type="date" name="due_date" class="form-control rounded-3" required>
+                            <input type="date" name="due_date" id="due_date" class="form-control rounded-3" required min="<?php echo htmlspecialchars($today); ?>" data-past-date-message="Past dates are not allowed. Please select today or a future date.">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Priority Level</label>
