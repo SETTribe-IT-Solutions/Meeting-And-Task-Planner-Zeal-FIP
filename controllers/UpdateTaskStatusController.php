@@ -14,6 +14,11 @@ if (!isLoggedIn()) {
     redirect('../modules/users/login.php');
 }
 
+if (($_SESSION['role'] ?? '') !== 'Organizer') {
+    $_SESSION['error'] = 'You have view-only access to tasks.';
+    redirect('../modules/tasks/index.php');
+}
+
 if (empty($_POST['task_id']) || empty($_POST['status'])) {
     $_SESSION['error'] = 'Invalid request parameters.';
     redirect('../modules/tasks/index.php');

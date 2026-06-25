@@ -303,17 +303,6 @@ include __DIR__ . '/includes/header.php';
       }
     }
 </style>
-
-<!-- News Ticker (CSS-based) -->
-<div class="news-ticker-modern d-flex align-items-center py-2 mb-4 shadow-sm animate-on-scroll">
-    <span class="ticker-label ms-3"><i class="fas fa-bullhorn"></i> LATEST</span>
-    <div class="ticker-content">
-        <span class="ticker-text">
-            📢 Weekly administrative reviews are scheduled for every Friday. &nbsp;|&nbsp; 📋 New HR Policy updates for 2026 are now available under Reports. &nbsp;|&nbsp; 🔔 Please confirm your attendance for the upcoming District Planning meeting. &nbsp;|&nbsp; ✅ Digital attendance is now mandatory for all government meetings.
-        </span>
-    </div>
-</div>
-
 <!-- Statistics Cards -->
 <div class="row g-4 mb-4">
     <div class="col-xl-3 col-md-6 animate-on-scroll">
