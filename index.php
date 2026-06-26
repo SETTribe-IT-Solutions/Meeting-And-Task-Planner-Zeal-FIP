@@ -25,8 +25,10 @@ if ($role === 'Collector') {
     $meetings_result = $conn->query("SELECT COUNT(*) as total FROM meetings");
     $meetings_organized = $meetings_result->fetch_assoc()['total'] ?? 0;
     
-    $upcoming_result = $conn->query("SELECT COUNT(*) as total FROM meetings WHERE meeting_date >= '$today' AND status != 'Cancelled'");
-    $upcoming_meetings = $upcoming_result->fetch_assoc()['total'] ?? 0;
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE meeting_date >= ? AND status != 'Cancelled'");
+    $stmt->bind_param("s", $today);
+    $stmt->execute();
+    $upcoming_meetings = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
     
     $tasks_result = $conn->query("SELECT COUNT(*) as total FROM tasks WHERE status IN ('Pending', 'In Progress')");
     $pending_tasks = $tasks_result->fetch_assoc()['total'] ?? 0;
@@ -37,11 +39,15 @@ if ($role === 'Collector') {
     $total_tasks_result = $conn->query("SELECT COUNT(*) as total FROM tasks");
     $total_tasks = $total_tasks_result->fetch_assoc()['total'] ?? 0;
 
-    $todays_meetings_result = $conn->query("SELECT COUNT(*) as total FROM meetings WHERE meeting_date = '$today' AND status != 'Cancelled'");
-    $todays_meetings = $todays_meetings_result->fetch_assoc()['total'] ?? 0;
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE meeting_date = ? AND status != 'Cancelled'");
+    $stmt->bind_param("s", $today);
+    $stmt->execute();
+    $todays_meetings = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
 
-    $overdue_tasks_result = $conn->query("SELECT COUNT(*) as total FROM tasks WHERE due_date < '$today' AND status IN ('Pending', 'In Progress')");
-    $overdue_tasks = $overdue_tasks_result->fetch_assoc()['total'] ?? 0;
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks WHERE due_date < ? AND status IN ('Pending', 'In Progress')");
+    $stmt->bind_param("s", $today);
+    $stmt->execute();
+    $overdue_tasks = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
 
     $total_users_result = $conn->query("SELECT COUNT(*) as total FROM users WHERE isDeleted = 'No'");
     $total_users = $total_users_result->fetch_assoc()['total'] ?? 0;

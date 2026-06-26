@@ -192,6 +192,12 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Ensure a CSRF token is always available for authenticated sessions.
+// This covers sessions that existed before CSRF was introduced.
+if (!empty($_SESSION['user_id']) && empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 // Language detection and persistence
 if (isset($_GET['lang'])) {
     $_SESSION['lang'] = ($_GET['lang'] === 'mr') ? 'mr' : 'en';
@@ -226,18 +232,28 @@ function __($key) {
 // Set timezone
 date_default_timezone_set('Asia/Kolkata');
 
-// Helper function for debugging
+// APP_DEBUG flag — set to true only in local development, never on production.
+if (!defined('APP_DEBUG')) {
+    define('APP_DEBUG', false);
+}
+
+// Helper function for debugging (output suppressed unless APP_DEBUG is true)
 function debug($data) {
+    if (!APP_DEBUG) {
+        return;
+    }
     echo "<pre>";
     print_r($data);
     echo "</pre>";
 }
 
-// Helper function for sanitizing input
+// Helper function for sanitizing input.
+// NOTE: htmlspecialchars() is intentionally NOT applied here.
+// Escaping must happen at the output/render layer (use htmlspecialchars() in views).
+// Applying it here causes double-encoding when the value is echoed through a view.
 function sanitizeInput($data) {
     $data = trim($data);
     $data = stripslashes($data);
-    $data = htmlspecialchars($data);
     return $data;
 }
 

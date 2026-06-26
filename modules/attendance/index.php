@@ -283,10 +283,11 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                     <td class="text-end">
                                         <!-- Inline status editing form -->
                                         <form action="../../controllers/AttendanceController.php" method="POST" class="d-inline-block">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                                             <input type="hidden" name="action" value="update">
                                             <input type="hidden" name="attendance_id" value="<?php echo $record['id']; ?>">
                                             <input type="hidden" name="meeting_id" value="<?php echo $record['meeting_id']; ?>">
-                                            <input type="hidden" name="redirect" value="../modules/attendance/index.php?<?php echo $_SERVER['QUERY_STRING']; ?>">
+                                            <input type="hidden" name="redirect" value="../modules/attendance/index.php?<?php echo htmlspecialchars($_SERVER['QUERY_STRING'] ?? ''); ?>">
                                             
                                             <div class="d-flex align-items-center gap-1 justify-content-end">
                                                 <select name="status" class="form-select form-select-sm rounded-3 w-auto" style="min-width: 110px;" onchange="this.form.submit()">
