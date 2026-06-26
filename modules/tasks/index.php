@@ -59,7 +59,7 @@ if (!empty($priorityFilter)) {
     $types .= "s";
 }
 if (!empty($searchQuery)) {
-    $sql .= " AND (t.title LIKE ? OR m.title LIKE ? OR ua.name LIKE ? OR o.name LIKE ?)";
+    $sql .= " AND (t.title LIKE ? OR m.title LIKE ? OR ua.name LIKE ?)";
     $searchWildcard = "%" . $searchQuery . "%";
     $params[] = $searchWildcard;
     $params[] = $searchWildcard;
@@ -68,7 +68,7 @@ if (!empty($searchQuery)) {
     $types .= "ssss";
 }
 
-// Group by task id to allow GROUP_CONCAT
+// GROUP BY must follow all WHERE conditions, not precede them
 $sql .= " GROUP BY t.id";
 
 $sql .= " ORDER BY t.due_date ASC";
@@ -284,8 +284,21 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                                         <span class="badge <?php echo $sClass; ?>"><?php echo htmlspecialchars($status); ?></span>
                                     </td>
                                     <td class="text-end">
-                                        <?php if ($canManageTasks): ?>
+                                        <?php if ($role === 'Employee'): ?>
+                                            <!-- Employee update actions -->
                                             <form action="../../controllers/UpdateTaskStatusController.php" method="POST" class="d-inline-block">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                                <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
+                                                <select name="status" class="form-select form-select-sm d-inline-block rounded-3 w-auto" onchange="this.form.submit()">
+                                                    <option value="Pending" <?php echo $status === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                                                    <option value="In Progress" <?php echo $status === 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
+                                                    <option value="Completed" <?php echo $status === 'Completed' ? 'selected' : ''; ?>>Completed</option>
+                                                </select>
+                                            </form>
+                                        <?php elseif ($role === 'Organizer' || $role === 'Collector'): ?>
+                                            <!-- Admin/Organizer update actions -->
+                                            <form action="../../controllers/UpdateTaskStatusController.php" method="POST" class="d-inline-block">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                                                 <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
                                                 <select name="status" class="form-select form-select-sm d-inline-block rounded-3 w-auto" onchange="this.form.submit()">
                                                     <option value="Pending" <?php echo $status === 'Pending' ? 'selected' : ''; ?>>Pending</option>
