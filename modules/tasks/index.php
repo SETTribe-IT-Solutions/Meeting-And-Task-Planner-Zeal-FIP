@@ -15,6 +15,7 @@ include_once '../../includes/header.php';
 $conn = getDBConnection();
 $user_id = $_SESSION['user_id'];
 $role = $_SESSION['role'];
+$canManageTasks = ($role === 'Organizer');
 
 // Filters
 $statusFilter = isset($_GET['status']) ? sanitizeInput($_GET['status']) : '';
@@ -63,7 +64,8 @@ if (!empty($searchQuery)) {
     $params[] = $searchWildcard;
     $params[] = $searchWildcard;
     $params[] = $searchWildcard;
-    $types .= "sss";
+    $params[] = $searchWildcard;
+    $types .= "ssss";
 }
 
 // GROUP BY must follow all WHERE conditions, not precede them
@@ -72,11 +74,17 @@ $sql .= " GROUP BY t.id";
 $sql .= " ORDER BY t.due_date ASC";
 
 $stmt = $conn->prepare($sql);
+if (!$stmt) {
+    error_log('Task list query prepare failed: ' . $conn->error . ' | Query: ' . $sql);
+    $_SESSION['error'] = 'Unable to load tasks right now.';
+    $tasks = [];
+} else {
 if (!empty($params)) {
     $stmt->bind_param($types, ...$params);
 }
 $stmt->execute();
 $tasks = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
 
 // If requested via AJAX, return JSON list of tasks for client-side refresh
 if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
@@ -115,7 +123,7 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                     <h3 class="fw-bold mb-1" style="color: var(--gov-blue);">Task Board</h3>
                     <p class="text-muted mb-0">Monitor responsibilities and update completion status.</p>
                 </div>
-                <?php if ($role === 'Organizer' || $role === 'Collector'): ?>
+                <?php if ($canManageTasks): ?>
                 <a href="create.php" class="btn btn-primary rounded-3 px-3 py-2">
                     <i class="fas fa-plus-circle me-1"></i> Assign New Task
                 </a>
@@ -299,7 +307,7 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                                                 </select>
                                             </form>
                                         <?php else: ?>
-                                            <span class="text-muted small">No actions available</span>
+                                            <span class="text-muted small">View only</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>

@@ -30,6 +30,10 @@ if (!isset($_SESSION['user_id'])) {
 
 $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') || (!empty($_POST['ajax']) && $_POST['ajax'] == '1');
 
+if (($_SESSION['role'] ?? '') !== 'Organizer') {
+    failTaskCreation('You have view-only access to tasks.', $isAjax);
+}
+
 $requiredFields = ['meeting_id', 'title', 'assigned_to', 'due_date', 'priority'];
 foreach ($requiredFields as $field) {
     if (empty($_POST[$field])) {
