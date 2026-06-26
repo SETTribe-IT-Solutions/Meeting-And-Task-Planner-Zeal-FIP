@@ -17,14 +17,27 @@ $role = $_SESSION['role'];
 $user_id = $_SESSION['user_id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // CSRF verification — same pattern used throughout the application
+    $submitted_token = trim($_POST['csrf_token'] ?? '');
+    if (empty($submitted_token) || !hash_equals($_SESSION['csrf_token'] ?? '', $submitted_token)) {
+        $_SESSION['error'] = 'Invalid security token. Please refresh the page and try again.';
+        header('Location: ../index.php');
+        exit();
+    }
+
     $action = isset($_POST['action']) ? sanitizeInput($_POST['action']) : '';
     $meetingId = isset($_POST['meeting_id']) ? (int)$_POST['meeting_id'] : 0;
     
     if ($action === 'update') {
         $attendanceId = isset($_POST['attendance_id']) ? (int)$_POST['attendance_id'] : 0;
-        $status = isset($_POST['status']) ? sanitizeInput($_POST['status']) : 'Pending';
-        $remarks = isset($_POST['remarks']) ? sanitizeInput($_POST['remarks']) : '';
-        
+
+        // Whitelist: only accept known attendance status values
+        $ALLOWED_ATT_STATUSES = ['Present', 'Absent', 'Pending'];
+        $rawStatus = isset($_POST['status']) ? trim($_POST['status']) : 'Pending';
+        $status    = in_array($rawStatus, $ALLOWED_ATT_STATUSES, true) ? $rawStatus : 'Pending';
+
+        $remarks = isset($_POST['remarks']) ? trim(stripslashes($_POST['remarks'])) : '';
+
         if ($role === 'Employee') {
             // Employees can only update their own status
             $stmt = $conn->prepare("UPDATE attendance SET status = ?, remarks = ? WHERE id = ? AND user_id = ?");
@@ -34,14 +47,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $conn->prepare("UPDATE attendance SET status = ?, remarks = ? WHERE id = ?");
             $stmt->bind_param("ssi", $status, $remarks, $attendanceId);
         }
-        
+
         if ($stmt->execute()) {
             $_SESSION['success'] = 'Attendance record updated successfully.';
         } else {
             $_SESSION['error'] = 'Failed to update attendance.';
         }
-        
-        $redirectUrl = isset($_POST['redirect']) ? sanitizeInput($_POST['redirect']) : "../modules/meetings/view.php?id=" . $meetingId;
+
+        // Validate redirect to prevent open-redirect attacks.
+        // Only allow relative paths that point to known internal modules.
+        $redirectUrl = "../modules/meetings/view.php?id=" . $meetingId;
+        if (!empty($_POST['redirect'])) {
+            $r = trim($_POST['redirect']);
+            if (preg_match('#^\.\./modules/[a-zA-Z0-9_/.\-?=&]+$#', $r)) {
+                $redirectUrl = $r;
+            }
+        }
         header("Location: " . $redirectUrl);
         exit();
     } 

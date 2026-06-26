@@ -278,6 +278,7 @@ $statusBadge = match(strtolower($meeting['status'])) {
             <?php if (isOrganizer() && !empty($nonAttendees)): ?>
                 <!-- Invite attendee dropdown form -->
                 <form action="../../controllers/AttendanceController.php" method="POST" class="mb-4">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                     <input type="hidden" name="action" value="add">
                     <input type="hidden" name="meeting_id" value="<?php echo $meetingId; ?>">
                     <label class="form-label">Invite Employee</label>
@@ -323,6 +324,7 @@ $statusBadge = match(strtolower($meeting['status'])) {
                                     <!-- Action form if allowed -->
                                     <?php if ($role === 'Collector' || $role === 'Organizer' || ($role === 'Employee' && $att['user_id'] == $user_id)): ?>
                                         <form action="../../controllers/AttendanceController.php" method="POST" class="d-block mt-1">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                                             <input type="hidden" name="action" value="update">
                                             <input type="hidden" name="attendance_id" value="<?php echo $att['attendance_id']; ?>">
                                             <input type="hidden" name="meeting_id" value="<?php echo $meetingId; ?>">

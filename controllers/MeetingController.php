@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Organizer') {
+if (!isset($_SESSION['user_id']) || !isOrganizer()) {
     $_SESSION['error'] = 'Only organizers can create meetings.';
     header('Location: ../modules/meetings/create.php');
     exit();

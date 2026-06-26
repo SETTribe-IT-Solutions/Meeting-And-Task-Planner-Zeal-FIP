@@ -286,6 +286,7 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                                     <td class="text-end">
                                         <?php if ($canManageTasks): ?>
                                             <form action="../../controllers/UpdateTaskStatusController.php" method="POST" class="d-inline-block">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                                                 <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
                                                 <select name="status" class="form-select form-select-sm d-inline-block rounded-3 w-auto" onchange="this.form.submit()">
                                                     <option value="Pending" <?php echo $status === 'Pending' ? 'selected' : ''; ?>>Pending</option>
