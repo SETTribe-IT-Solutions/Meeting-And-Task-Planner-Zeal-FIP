@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Organizer') {
+if (!isset($_SESSION['user_id']) || !isOrganizer()) {
     $_SESSION['error'] = 'Only organizers can create meetings.';
     header('Location: ../modules/meetings/create.php');
     exit();
@@ -41,6 +41,13 @@ if (!in_array($department, getDepartments(), true)) {
     exit();
 }
 
+$today = date('Y-m-d');
+if ($meetingDate < $today) {
+    $_SESSION['error'] = 'Please select today or a future date for the meeting.';
+    header('Location: ../modules/meetings/create.php');
+    exit();
+}
+
 try {
     $conn = getDBConnection();
     $stmt = $conn->prepare(
@@ -50,10 +57,27 @@ try {
     $stmt->bind_param("sssssssi", $title, $meetingDate, $meetingTime, $location, $mode, $agenda, $department, $organizerId);
     $stmt->execute();
 
+    $meetingId = $conn->insert_id; // Get the ID of the newly inserted meeting
+
+    // Insert selected employees from the selected department into the attendance table
+    if (!empty($_POST['attendees']) && is_array($_POST['attendees'])) {
+        $validAttendeeStmt = $conn->prepare("SELECT id FROM users WHERE id = ? AND role = 'Employee' AND department = ? AND isDeleted = 'No' LIMIT 1");
+        $stmt_att = $conn->prepare("INSERT INTO attendance (meeting_id, user_id, status) VALUES (?, ?, 'Pending')");
+        foreach ($_POST['attendees'] as $attendeeId) {
+            $attendeeId = (int)$attendeeId;
+            $validAttendeeStmt->bind_param("is", $attendeeId, $department);
+            $validAttendeeStmt->execute();
+            if ($validAttendeeStmt->get_result()->num_rows === 0) {
+                continue;
+            }
+            $stmt_att->bind_param("ii", $meetingId, $attendeeId);
+            $stmt_att->execute();
+        }
+    }
+
     $_SESSION['success'] = 'Meeting created successfully.';
 
     // --- Start Translation Logic ---
-    $meetingId = $conn->insert_id; // Get the ID of the newly inserted meeting
     $targetLanguages = ['en', 'mr']; // Languages to translate into
     $sourceLanguage = 'en'; // Assuming agenda is primarily written in English
 

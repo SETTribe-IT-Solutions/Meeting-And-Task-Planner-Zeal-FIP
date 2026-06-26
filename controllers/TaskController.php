@@ -5,6 +5,18 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/../config/db.php';
 
+function failTaskCreation(string $message, bool $isAjax): void
+{
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => $message]);
+    } else {
+        $_SESSION['error'] = $message;
+        header('Location: ../modules/tasks/create.php');
+    }
+    exit();
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ../modules/tasks/create.php');
     exit();
@@ -16,21 +28,41 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') || (!empty($_POST['ajax']) && $_POST['ajax'] == '1');
+
 $requiredFields = ['meeting_id', 'title', 'assigned_to', 'due_date', 'priority'];
 foreach ($requiredFields as $field) {
     if (empty($_POST[$field])) {
-        $_SESSION['error'] = 'Please fill in all task details.';
-        header('Location: ../modules/tasks/create.php');
-        exit();
+        failTaskCreation('Please fill in all task details.', $isAjax);
     }
 }
 
 $meetingId = (int) $_POST['meeting_id'];
 $title = trim($_POST['title']);
-$assignedTo = (int) $_POST['assigned_to'];
 $dueDate = trim($_POST['due_date']);
 $priority = trim($_POST['priority']);
 $notes = trim($_POST['notes'] ?? '');
+
+$dueDateObj = DateTimeImmutable::createFromFormat('!Y-m-d', $dueDate);
+$dateErrors = DateTimeImmutable::getLastErrors();
+$hasDateErrors = $dateErrors !== false && ($dateErrors['warning_count'] > 0 || $dateErrors['error_count'] > 0);
+if (!$dueDateObj || $hasDateErrors) {
+    failTaskCreation('Please select a valid due date.', $isAjax);
+}
+
+if ($dueDateObj < new DateTimeImmutable('today')) {
+    failTaskCreation('Past dates are not allowed. Please select today or a future date.', $isAjax);
+}
+
+// assigned_to can be array (multiple) or single
+$assignedToInput = $_POST['assigned_to'] ?? [];
+if (is_array($assignedToInput)) {
+    $assignedIds = array_map('intval', $assignedToInput);
+} else {
+    $assignedIds = [(int)$assignedToInput];
+}
+// Primary assigned_to stored on tasks table (first selected)
+$assignedTo = isset($assignedIds[0]) ? (int)$assignedIds[0] : 0;
 
 try {
     $conn = getDBConnection();
@@ -41,11 +73,46 @@ try {
     $stmt->bind_param("isisss", $meetingId, $title, $assignedTo, $dueDate, $priority, $notes);
     $stmt->execute();
 
+    $insertId = $stmt->insert_id;
+
+    // Ensure task_assignments table exists
+    $conn->query("CREATE TABLE IF NOT EXISTS task_assignments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        task_id INT NOT NULL,
+        user_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // Insert assignments
+    if (!empty($assignedIds)) {
+        $insStmt = $conn->prepare("INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)");
+        foreach ($assignedIds as $uid) {
+            $uid = (int)$uid;
+            $insStmt->bind_param('ii', $insertId, $uid);
+            $insStmt->execute();
+        }
+    }
+
+    // If request is AJAX, return JSON
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true, 'message' => 'Task created successfully.', 'task_id' => $insertId]);
+        exit();
+    }
+
     $_SESSION['success'] = 'Task created successfully.';
     header('Location: ../index.php?status=success');
     exit();
 } catch (Exception $e) {
     error_log('Task creation failed: ' . $e->getMessage());
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => 'Unable to create task right now.'] );
+        exit();
+    }
+
     $_SESSION['error'] = 'Unable to create task right now.';
     header('Location: ../modules/tasks/create.php');
     exit();

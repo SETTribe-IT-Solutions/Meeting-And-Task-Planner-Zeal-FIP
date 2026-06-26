@@ -135,56 +135,73 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             </div>
         <?php endif; ?>
 
-        <div class="card p-4 border-0 mb-4 shadow-sm">
+        <div class="card p-4 border-0 mb-4 shadow-sm animate-on-scroll">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h3 class="fw-bold mb-1" style="color: #0b3d5f;">Attendance Portal</h3>
+                    <h3 class="fw-bold mb-1" style="color: var(--gov-blue);">Attendance Portal</h3>
                     <p class="text-muted mb-0">Track and log meeting participation across administrative wings.</p>
                 </div>
-                <span class="badge bg-success text-white px-3 py-2 badge-status">Live Synchronization</span>
+                <span class="badge bg-success text-white px-3 py-2" style="animation: pulse 2s ease-in-out infinite;">
+                    <i class="fas fa-signal me-1"></i> Live Sync
+                </span>
             </div>
         </div>
 
         <!-- Attendance Stats Cards -->
         <div class="row g-4 mb-4">
-            <div class="col-md-4">
-                <div class="card p-3 border-0 bg-success text-white shadow-sm" style="border-radius: 15px;">
-                    <small class="text-white-50 fw-bold">PRESENT RATE</small>
-                    <h3 class="mb-0 fw-bold mt-1"><?php echo $ratios['present']; ?>%</h3>
-                    <div class="progress mt-2" style="height: 5px; background: rgba(255,255,255,0.2);">
+            <div class="col-md-4 animate-on-scroll">
+                <div class="card stat-card stat-success border-0 p-4">
+                    <i class="fas fa-user-check stat-icon"></i>
+                    <div class="stat-label mb-1">PRESENT RATE</div>
+                    <div class="d-flex align-items-end gap-1">
+                        <div class="stat-value counter-value" data-target="<?php echo $ratios['present']; ?>" style="font-size:2rem;">0</div>
+                        <span style="font-size:1.2rem;font-weight:700;opacity:0.9;">%</span>
+                    </div>
+                    <div class="progress mt-3" style="height: 6px; background: rgba(255,255,255,0.2);">
                         <div class="progress-bar bg-white" style="width: <?php echo $ratios['present']; ?>%"></div>
                     </div>
+                    <div class="stat-trend mt-2"><i class="fas fa-users me-1"></i> <?php echo $statusCounts['Present']; ?> present</div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card p-3 border-0 bg-warning text-dark shadow-sm" style="border-radius: 15px;">
-                    <small class="text-dark-50 fw-bold">PENDING RSVP</small>
-                    <h3 class="mb-0 fw-bold mt-1"><?php echo $ratios['pending']; ?>%</h3>
-                    <div class="progress mt-2" style="height: 5px; background: rgba(0,0,0,0.1);">
+            <div class="col-md-4 animate-on-scroll">
+                <div class="card stat-card stat-warning border-0 p-4">
+                    <i class="fas fa-hourglass-half stat-icon"></i>
+                    <div class="stat-label mb-1">PENDING RSVP</div>
+                    <div class="d-flex align-items-end gap-1">
+                        <div class="stat-value counter-value" data-target="<?php echo $ratios['pending']; ?>" style="font-size:2rem;">0</div>
+                        <span style="font-size:1.2rem;font-weight:700;opacity:0.9;">%</span>
+                    </div>
+                    <div class="progress mt-3" style="height: 6px; background: rgba(0,0,0,0.1);">
                         <div class="progress-bar bg-dark" style="width: <?php echo $ratios['pending']; ?>%"></div>
                     </div>
+                    <div class="stat-trend mt-2"><i class="fas fa-clock me-1"></i> <?php echo $statusCounts['Pending']; ?> pending</div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card p-3 border-0 bg-danger text-white shadow-sm" style="border-radius: 15px;">
-                    <small class="text-white-50 fw-bold">ABSENT RATE</small>
-                    <h3 class="mb-0 fw-bold mt-1"><?php echo $ratios['absent']; ?>%</h3>
-                    <div class="progress mt-2" style="height: 5px; background: rgba(255,255,255,0.2);">
+            <div class="col-md-4 animate-on-scroll">
+                <div class="card stat-card stat-danger border-0 p-4">
+                    <i class="fas fa-user-times stat-icon"></i>
+                    <div class="stat-label mb-1">ABSENT RATE</div>
+                    <div class="d-flex align-items-end gap-1">
+                        <div class="stat-value counter-value" data-target="<?php echo $ratios['absent']; ?>" style="font-size:2rem;">0</div>
+                        <span style="font-size:1.2rem;font-weight:700;opacity:0.9;">%</span>
+                    </div>
+                    <div class="progress mt-3" style="height: 6px; background: rgba(255,255,255,0.2);">
                         <div class="progress-bar bg-white" style="width: <?php echo $ratios['absent']; ?>%"></div>
                     </div>
+                    <div class="stat-trend mt-2"><i class="fas fa-user-slash me-1"></i> <?php echo $statusCounts['Absent']; ?> absent</div>
                 </div>
             </div>
         </div>
 
         <!-- Search & Filter Card -->
-        <div class="card p-4 border-0 shadow-sm mb-4 bg-white">
+        <div class="card p-4 border-0 shadow-sm mb-4 bg-white animate-on-scroll">
             <form method="GET" class="row g-3 align-items-end">
                 <div class="col-md-4">
-                    <label class="form-label small fw-bold text-secondary">Search Employee</label>
+                    <label class="form-label">Search Employee</label>
                     <input type="text" name="search" class="form-control rounded-3" placeholder="Enter name..." value="<?php echo htmlspecialchars($searchQuery); ?>">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label small fw-bold text-secondary">Meeting</label>
+                    <label class="form-label">Meeting</label>
                     <select name="meeting_id" class="form-select rounded-3">
                         <option value="0">All Meetings</option>
                         <?php foreach ($meetingsList as $meeting): ?>
@@ -195,7 +212,7 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label small fw-bold text-secondary">Status</label>
+                    <label class="form-label">Status</label>
                     <select name="status" class="form-select rounded-3">
                         <option value="">All Statuses</option>
                         <option value="Present" <?php echo $statusFilter === 'Present' ? 'selected' : ''; ?>>Present</option>
@@ -203,23 +220,31 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                         <option value="Absent" <?php echo $statusFilter === 'Absent' ? 'selected' : ''; ?>>Absent</option>
                     </select>
                 </div>
-                <div class="col-md-2 d-grid">
-                    <button type="submit" class="btn btn-primary rounded-3 py-2" style="background-color: #0b3d5f; border-color: #0b3d5f;">Apply Filters</button>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary rounded-3 py-2 flex-grow-1"><i class="fas fa-filter me-1"></i> Filter</button>
+                    <a href="index.php" class="btn btn-outline-secondary rounded-3 py-2" title="Reset"><i class="fas fa-undo"></i></a>
                 </div>
             </form>
         </div>
 
         <!-- Attendance Records List -->
-        <div class="card p-4 border-0 shadow-sm bg-white">
+        <div class="card p-4 border-0 shadow-sm bg-white animate-on-scroll" id="attendanceTableWrapper" data-paginate data-per-page="10">
             <?php if (empty($attendanceRecords)): ?>
-                <div class="text-center py-5">
-                    <i class="bi bi-people fs-1 text-muted"></i>
-                    <p class="text-muted mt-2">No attendance records found matching filters.</p>
+                <div class="empty-state">
+                    <i class="bi bi-people"></i>
+                    <p>No attendance records found matching filters.</p>
                 </div>
             <?php else: ?>
+                <div class="table-filter-bar">
+                    <div class="table-search-input">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Quick filter..." data-table-search="attendanceTableWrapper">
+                    </div>
+                    <span class="table-result-count"><?php echo count($attendanceRecords); ?> records</span>
+                </div>
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead style="background:#f7fbf8; border-top: 2px solid #16a34a;">
+                    <table class="table table-enhanced table-hover align-middle mb-0">
+                        <thead>
                             <tr>
                                 <th>Employee / Wing</th>
                                 <th>Meeting Room</th>
@@ -244,13 +269,13 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                         <?php
                                         $status = $record['status'];
                                         $badgeClass = match($status) {
-                                            'Present' => 'success',
-                                            'Absent' => 'danger',
-                                            'Pending' => 'warning text-dark',
-                                            default => 'secondary'
+                                            'Present' => 'badge-status-completed',
+                                            'Absent' => 'badge-status-cancelled',
+                                            'Pending' => 'badge-status-scheduled',
+                                            default => 'bg-secondary'
                                         };
                                         ?>
-                                        <span class="badge bg-<?php echo $badgeClass; ?>"><?php echo htmlspecialchars($status); ?></span>
+                                        <span class="badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($status); ?></span>
                                     </td>
                                     <td>
                                         <span class="text-muted small"><?php echo !empty($record['remarks']) ? htmlspecialchars($record['remarks']) : '—'; ?></span>
@@ -258,10 +283,11 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                     <td class="text-end">
                                         <!-- Inline status editing form -->
                                         <form action="../../controllers/AttendanceController.php" method="POST" class="d-inline-block">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                                             <input type="hidden" name="action" value="update">
                                             <input type="hidden" name="attendance_id" value="<?php echo $record['id']; ?>">
                                             <input type="hidden" name="meeting_id" value="<?php echo $record['meeting_id']; ?>">
-                                            <input type="hidden" name="redirect" value="../modules/attendance/index.php?<?php echo $_SERVER['QUERY_STRING']; ?>">
+                                            <input type="hidden" name="redirect" value="../modules/attendance/index.php?<?php echo htmlspecialchars($_SERVER['QUERY_STRING'] ?? ''); ?>">
                                             
                                             <div class="d-flex align-items-center gap-1 justify-content-end">
                                                 <select name="status" class="form-select form-select-sm rounded-3 w-auto" style="min-width: 110px;" onchange="this.form.submit()">

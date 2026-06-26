@@ -10,8 +10,6 @@ require_once __DIR__ . '/../config/db.php';
 
 class AuthController {
 
-    private static $VALID_ROLES = ['Collector', 'Organizer', 'Employee'];
-    
     /**
      * Handle login with full validation
      */
@@ -24,28 +22,29 @@ class AuthController {
             exit();
         }
 
+        // ── 1b. Rate Limiting (session-based, no DB or cache required) ──
+        // Track failed attempts per session. Lock for 15 minutes after 5 failures.
+        $maxAttempts  = 5;
+        $lockDuration = 15 * 60; // seconds
+        $now          = time();
+
+        if (!empty($_SESSION['login_lockout_until']) && $now < $_SESSION['login_lockout_until']) {
+            $remaining = ceil(($_SESSION['login_lockout_until'] - $now) / 60);
+            $_SESSION['error'] = "Too many failed login attempts. Please try again in {$remaining} minute" . ((int)$remaining === 1 ? '' : 's') . ".";
+            header('Location: ../modules/users/login.php');
+            exit();
+        }
+
         // ── 2. Collect & Sanitize ──
-        $email    = strtolower(trim($_POST['email'] ?? ''));
+        $email    = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
-        $role     = trim($_POST['role'] ?? '');
 
         // Preserve old values for repopulation
         $_SESSION['old_email'] = $email;
-        $_SESSION['old_role']  = $role;
 
         // ── 3. Validation ──
-        // Role validation
-        if (empty($role)) {
-            $_SESSION['error'] = 'Please select your login role.';
-            header('Location: ../modules/users/login.php');
-            exit();
-        }
-
-        if (!in_array($role, self::$VALID_ROLES, true)) {
-            $_SESSION['error'] = 'Invalid role selected.';
-            header('Location: ../modules/users/login.php');
-            exit();
-        }
+        // Note: Role selection removed from login form. Role will be determined
+        // from the user's record in the database after successful authentication.
 
         // Email validation
         if (empty($email)) {
@@ -101,32 +100,44 @@ class AuthController {
             // ── 5. Credential Verification ──
             // Check if user exists
             if (!$user) {
+                $this->recordFailedAttempt($maxAttempts, $lockDuration);
                 $_SESSION['error'] = 'No account found with this email address.';
                 header('Location: ../modules/users/login.php');
                 exit();
             }
 
-            // Verify role matches
-            if (strcasecmp($user['role'], $role) !== 0) {
-                $_SESSION['error'] = 'Selected role does not match your registered account role.';
-                header('Location: ../modules/users/login.php');
-                exit();
+            // Role will be taken from the database record; no separate role selection required.
+
+            // Verify password with backward-compatible plain-text migration.
+            // If the stored value is a bcrypt hash, use password_verify().
+            // If it is plain text (legacy), do a direct comparison and
+            // immediately upgrade the hash in the database — transparent to the user.
+            $storedPassword = $user['password'];
+            $isHashed       = (bool) preg_match('/^\$2[ayb]\$/', $storedPassword);
+
+            $passwordValid = false;
+            if ($isHashed) {
+                $passwordValid = password_verify($password, $storedPassword);
+            } elseif ($password === $storedPassword) {
+                // Plain-text match — authenticate and upgrade to bcrypt on the spot
+                $passwordValid = true;
+                $newHash       = password_hash($password, PASSWORD_BCRYPT);
+                $upgradeStmt   = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
+                $upgradeStmt->bind_param("si", $newHash, $user['id']);
+                $upgradeStmt->execute();
             }
 
-            // Verify password (support both legacy plain text demo passwords and bcrypt hashed)
-            $isValidPlainPassword = (
-                ($password === 'admin123' && $email === 'organizer@project.local') || 
-                ($password === 'employee123' && $email === 'employee@project.local') || 
-                ($password === 'collector123' && $email === 'collector@project.local')
-            );
-
-            if (!$isValidPlainPassword && !password_verify($password, $user['password'])) {
+            if (!$passwordValid) {
+                $this->recordFailedAttempt($maxAttempts, $lockDuration);
                 $_SESSION['error'] = 'Incorrect password. Please try again.';
                 header('Location: ../modules/users/login.php');
                 exit();
             }
 
             // ── 6. Successful Login ──
+            // Reset rate-limit counters on success
+            unset($_SESSION['login_attempts'], $_SESSION['login_lockout_until']);
+
             // Clear old values
             unset($_SESSION['old_email'], $_SESSION['old_role']);
 
@@ -173,6 +184,18 @@ class AuthController {
         $_SESSION = array();
         session_destroy();
         return true;
+    }
+
+    /**
+     * Increment the session-based failed-login counter.
+     * Applies a lockout when the maximum attempt count is reached.
+     */
+    private function recordFailedAttempt(int $maxAttempts, int $lockDuration): void {
+        $_SESSION['login_attempts'] = ($_SESSION['login_attempts'] ?? 0) + 1;
+        if ($_SESSION['login_attempts'] >= $maxAttempts) {
+            $_SESSION['login_lockout_until'] = time() + $lockDuration;
+            $_SESSION['login_attempts']      = 0;
+        }
     }
 }
 

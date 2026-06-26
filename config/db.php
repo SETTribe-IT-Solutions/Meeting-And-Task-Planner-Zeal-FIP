@@ -126,6 +126,8 @@ function getDBConnection() {
             $schemaPath = dirname(__DIR__) . '/database/schema.sql';
             _executeSqlFile($conn, $schemaPath);
         }
+
+        ensureDepartmentStructure($conn);
         
         return $conn;
     } catch (Exception $e) {
@@ -133,29 +135,42 @@ function getDBConnection() {
     }
 }
 
-function getDefaultDepartments() {
+function getDefaultDepartmentRecords() {
     return [
-        'Administration',
-        'Revenue',
-        'HR',
-        'Public Works',
-        'Health',
-        'Education',
-        'Agriculture',
-        'Water Supply',
-        'Social Welfare',
-        'Finance',
-        'Planning',
-        'IT & Technology',
-        'Law & Order',
-        'Transport',
-        'Rural Development',
-        'Women & Child Development',
-        'Disaster Management',
-        'Election',
-        'Food & Civil Supplies',
-        'Urban Development'
+        ['Administration', 'General administration and coordination.'],
+        ['Law & Order', 'Public safety, legal coordination, and order management.'],
+        ['Revenue', 'Revenue administration and land records.'],
+        ['Health', 'Public health services and medical coordination.'],
+        ['Education', 'Education planning and institutional coordination.'],
+        ['Agriculture', 'Agriculture services and farmer support.'],
+        ['Finance', 'Financial planning, budget, and accounts.'],
+        ['IT Department', 'Information technology services and digital systems.'],
+        ['Rural Development', 'Rural development projects and schemes.'],
+        ['Public Works Department', 'Public infrastructure and works management.']
     ];
+}
+
+function getDefaultDepartments() {
+    return array_column(getDefaultDepartmentRecords(), 0);
+}
+
+function ensureDepartmentStructure($conn) {
+    $columnCheck = $conn->query("SHOW COLUMNS FROM departments LIKE 'description'");
+    if ($columnCheck && $columnCheck->num_rows === 0) {
+        $conn->query("ALTER TABLE departments ADD COLUMN description TEXT NULL AFTER name");
+    }
+
+    $stmt = $conn->prepare(
+        "INSERT INTO departments (name, description, is_active) VALUES (?, ?, 'Yes')
+         ON DUPLICATE KEY UPDATE description = COALESCE(description, VALUES(description))"
+    );
+
+    if ($stmt) {
+        foreach (getDefaultDepartmentRecords() as $department) {
+            $stmt->bind_param("ss", $department[0], $department[1]);
+            $stmt->execute();
+        }
+    }
 }
 
 function getDepartments() {
@@ -175,6 +190,12 @@ function getDepartments() {
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+}
+
+// Ensure a CSRF token is always available for authenticated sessions.
+// This covers sessions that existed before CSRF was introduced.
+if (!empty($_SESSION['user_id']) && empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 // Language detection and persistence
@@ -211,18 +232,28 @@ function __($key) {
 // Set timezone
 date_default_timezone_set('Asia/Kolkata');
 
-// Helper function for debugging
+// APP_DEBUG flag — set to true only in local development, never on production.
+if (!defined('APP_DEBUG')) {
+    define('APP_DEBUG', false);
+}
+
+// Helper function for debugging (output suppressed unless APP_DEBUG is true)
 function debug($data) {
+    if (!APP_DEBUG) {
+        return;
+    }
     echo "<pre>";
     print_r($data);
     echo "</pre>";
 }
 
-// Helper function for sanitizing input
+// Helper function for sanitizing input.
+// NOTE: htmlspecialchars() is intentionally NOT applied here.
+// Escaping must happen at the output/render layer (use htmlspecialchars() in views).
+// Applying it here causes double-encoding when the value is echoed through a view.
 function sanitizeInput($data) {
     $data = trim($data);
     $data = stripslashes($data);
-    $data = htmlspecialchars($data);
     return $data;
 }
 
@@ -250,5 +281,26 @@ function isOrganizer() {
 // Helper function to check if user is admin
 function isAdmin() {
     return isset($_SESSION['role']) && $_SESSION['role'] === 'Collector';
+}
+
+// Helper function to format time in 12-hour format with AM/PM
+function formatTime12Hour($time) {
+    if (empty($time)) {
+        return '';
+    }
+    // If it's a string time (HH:MM:SS format)
+    $timeArray = explode(':', $time);
+    if (count($timeArray) >= 2) {
+        $hour = (int)$timeArray[0];
+        $minute = $timeArray[1];
+        $ampm = ($hour >= 12) ? 'PM' : 'AM';
+        if ($hour > 12) {
+            $hour = $hour - 12;
+        } elseif ($hour === 0) {
+            $hour = 12;
+        }
+        return str_pad($hour, 2, '0', STR_PAD_LEFT) . ':' . $minute . ' ' . $ampm;
+    }
+    return $time;
 }
 ?>

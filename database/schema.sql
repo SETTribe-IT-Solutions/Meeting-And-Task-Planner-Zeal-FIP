@@ -3,7 +3,8 @@ USE meeting_planner;
 
 CREATE TABLE IF NOT EXISTS departments (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL UNIQUE COLLATE utf8mb4_bin,
+  description TEXT NULL,
   is_active ENUM('Yes','No') NOT NULL DEFAULT 'Yes',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -11,10 +12,10 @@ CREATE TABLE IF NOT EXISTS departments (
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
-  email VARCHAR(150) NOT NULL UNIQUE,
+  email VARCHAR(150) NOT NULL UNIQUE COLLATE utf8mb4_bin,
   password VARCHAR(255) NOT NULL,
   role VARCHAR(50) NOT NULL,
-  department VARCHAR(100) NOT NULL,
+  department VARCHAR(100) NOT NULL COLLATE utf8mb4_bin,
   isDeleted ENUM('Yes','No') NOT NULL DEFAULT 'No'
 );
 
@@ -67,28 +68,18 @@ CREATE TABLE IF NOT EXISTS meeting_translations (
 );
 
 
-INSERT INTO departments (name, is_active) VALUES
-('Administration', 'Yes'),
-('Revenue', 'Yes'),
-('HR', 'Yes'),
-('Public Works', 'Yes'),
-('Health', 'Yes'),
-('Education', 'Yes'),
-('Agriculture', 'Yes'),
-('Water Supply', 'Yes'),
-('Social Welfare', 'Yes'),
-('Finance', 'Yes'),
-('Planning', 'Yes'),
-('IT & Technology', 'Yes'),
-('Law & Order', 'Yes'),
-('Transport', 'Yes'),
-('Rural Development', 'Yes'),
-('Women & Child Development', 'Yes'),
-('Disaster Management', 'Yes'),
-('Election', 'Yes'),
-('Food & Civil Supplies', 'Yes'),
-('Urban Development', 'Yes')
-ON DUPLICATE KEY UPDATE is_active=VALUES(is_active);
+INSERT INTO departments (name, description, is_active) VALUES
+('Administration', 'General administration and coordination.', 'Yes'),
+('Law & Order', 'Public safety, legal coordination, and order management.', 'Yes'),
+('Revenue', 'Revenue administration and land records.', 'Yes'),
+('Health', 'Public health services and medical coordination.', 'Yes'),
+('Education', 'Education planning and institutional coordination.', 'Yes'),
+('Agriculture', 'Agriculture services and farmer support.', 'Yes'),
+('Finance', 'Financial planning, budget, and accounts.', 'Yes'),
+('IT Department', 'Information technology services and digital systems.', 'Yes'),
+('Rural Development', 'Rural development projects and schemes.', 'Yes'),
+('Public Works Department', 'Public infrastructure and works management.', 'Yes')
+ON DUPLICATE KEY UPDATE is_active=VALUES(is_active), description=VALUES(description);
 
 INSERT INTO users (name, email, password, role, department, isDeleted) VALUES
 ('System Collector', 'collector@project.local', 'collector123', 'Collector', 'Administration', 'No'),

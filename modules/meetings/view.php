@@ -18,7 +18,7 @@ $user_id = $_SESSION['user_id'];
 $role = $_SESSION['role'];
 
 if ($meetingId <= 0) {
-    echo "<div class='alert alert-danger'>Invalid Meeting ID.</div>";
+    echo "<div class='alert alert-danger rounded-3'>Invalid Meeting ID.</div>";
     include_once '../../includes/footer.php';
     exit();
 }
@@ -33,7 +33,7 @@ $stmt->execute();
 $meeting = $stmt->get_result()->fetch_assoc();
 
 if (!$meeting) {
-    echo "<div class='alert alert-danger'>Meeting not found.</div>";
+    echo "<div class='alert alert-danger rounded-3'>Meeting not found.</div>";
     include_once '../../includes/footer.php';
     exit();
 }
@@ -74,11 +74,25 @@ $tasks = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 // 5. Fetch non-attendee users for the invitation dropdown (Organizer/Collector only)
 $nonAttendees = [];
 if (isOrganizer()) {
-    $stmt = $conn->prepare("SELECT id, name, email FROM users WHERE isDeleted = 'No' AND id NOT IN (SELECT user_id FROM attendance WHERE meeting_id = ?)");
-    $stmt->bind_param("i", $meetingId);
+    $stmt = $conn->prepare("SELECT id, name, email FROM users WHERE role = 'Employee' AND department = ? AND isDeleted = 'No' AND id NOT IN (SELECT user_id FROM attendance WHERE meeting_id = ?) ORDER BY name ASC");
+    $stmt->bind_param("si", $meeting['department'], $meetingId);
     $stmt->execute();
     $nonAttendees = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
+
+// Attendance stats
+$totalAttendees = count($attendees);
+$presentCount = count(array_filter($attendees, fn($a) => $a['att_status'] === 'Present'));
+$absentCount = count(array_filter($attendees, fn($a) => $a['att_status'] === 'Absent'));
+$pendingCount = count(array_filter($attendees, fn($a) => $a['att_status'] === 'Pending'));
+
+$statusBadge = match(strtolower($meeting['status'])) {
+    'scheduled' => 'badge-status-scheduled',
+    'ongoing' => 'badge-status-ongoing',
+    'completed' => 'badge-status-completed',
+    'cancelled' => 'badge-status-cancelled',
+    default => 'bg-secondary'
+};
 ?>
 
 <div class="row g-4">
@@ -97,22 +111,38 @@ if (isOrganizer()) {
         <?php endif; ?>
 
         <!-- Meeting Cover Card -->
-        <div class="card p-4 border-0 shadow-sm text-white mb-4" style="background: linear-gradient(135deg, #0b3d5f 0%, #1e5c83 100%); border-radius: 20px;">
-            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
-                <div>
-                    <span class="badge bg-warning text-dark fw-bold mb-2"><?php echo htmlspecialchars($meeting['department']); ?> Wing</span>
-                    <h2 class="fw-bold mb-1"><?php echo htmlspecialchars($meeting['title']); ?></h2>
-                    <p class="mb-0 text-white-50 small">Organized by: <strong><?php echo htmlspecialchars($meeting['organizer_name']); ?></strong> (<?php echo htmlspecialchars($meeting['organizer_email']); ?>)</p>
+        <div class="card border-0 shadow-sm text-white mb-4 overflow-hidden animate-on-scroll" style="border-radius: var(--radius-xl);">
+            <div class="p-4 position-relative" style="background: linear-gradient(135deg, #0b3d5f 0%, #1a5f7a 50%, #0d4b6e 100%);">
+                <div class="position-absolute top-0 end-0 opacity-25" style="font-size: 8rem; line-height: 1; margin: -15px -10px 0 0;">
+                    <i class="fas fa-calendar-alt"></i>
                 </div>
-                <span class="badge bg-light text-dark px-3 py-2 fs-6 rounded-3"><?php echo htmlspecialchars($meeting['status']); ?></span>
+                <div class="position-relative" style="z-index: 2;">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                        <span class="badge bg-warning text-dark fw-bold px-3 py-2"><?php echo htmlspecialchars($meeting['department']); ?> Wing</span>
+                        <span class="badge <?php echo $statusBadge; ?> px-3 py-2 fs-6"><?php echo htmlspecialchars($meeting['status']); ?></span>
+                    </div>
+                    <h2 class="fw-bold mb-2"><?php echo htmlspecialchars($meeting['title']); ?></h2>
+                    <p class="mb-0 text-white-50">Organized by: <strong class="text-white"><?php echo htmlspecialchars($meeting['organizer_name']); ?></strong> (<?php echo htmlspecialchars($meeting['organizer_email']); ?>)</p>
+                    <div class="d-flex gap-3 mt-3 flex-wrap">
+                        <span class="d-flex align-items-center gap-2" style="background: rgba(255,255,255,0.1); padding: 6px 14px; border-radius: 20px; font-size: 0.85rem;">
+                            <i class="far fa-calendar-alt"></i> <?php echo date('d M Y', strtotime($meeting['meeting_date'])); ?>
+                        </span>
+                        <span class="d-flex align-items-center gap-2" style="background: rgba(255,255,255,0.1); padding: 6px 14px; border-radius: 20px; font-size: 0.85rem;">
+                            <i class="far fa-clock"></i> <?php echo formatTime12Hour($meeting['meeting_time']); ?>
+                        </span>
+                        <span class="d-flex align-items-center gap-2" style="background: rgba(255,255,255,0.1); padding: 6px 14px; border-radius: 20px; font-size: 0.85rem;">
+                            <i class="fas <?php echo strtolower($meeting['mode']) === 'online' ? 'fa-video' : 'fa-building'; ?>"></i> <?php echo htmlspecialchars($meeting['mode']); ?>
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Left Column: Details & Agenda -->
     <div class="col-lg-7">
-        <div class="card border-0 shadow-sm mb-4 bg-white p-4">
-            <h5 class="fw-bold text-gov-blue mb-4 border-bottom pb-2"><i class="fas fa-info-circle text-primary me-2"></i> Meeting Details</h5>
+        <div class="card border-0 shadow-sm mb-4 bg-white p-4 animate-on-scroll">
+            <h5 class="fw-bold mb-4 border-bottom pb-2" style="color: var(--gov-blue);"><i class="fas fa-info-circle text-primary me-2"></i> Meeting Details</h5>
             <div class="row g-3">
                 <div class="col-6 col-sm-4">
                     <small class="text-muted d-block uppercase fw-bold" style="font-size: 0.75rem;">DATE</small>
@@ -120,7 +150,7 @@ if (isOrganizer()) {
                 </div>
                 <div class="col-6 col-sm-4">
                     <small class="text-muted d-block uppercase fw-bold" style="font-size: 0.75rem;">TIME</small>
-                    <span class="fw-semibold text-dark"><?php echo date('g:i A', strtotime($meeting['meeting_time'])); ?></span>
+                    <span class="fw-semibold text-dark"><?php echo formatTime12Hour($meeting['meeting_time']); ?></span>
                 </div>
                 <div class="col-6 col-sm-4">
                     <small class="text-muted d-block uppercase fw-bold" style="font-size: 0.75rem;">MODE</small>
@@ -134,8 +164,8 @@ if (isOrganizer()) {
         </div>
 
         <!-- Agenda Section (Multi-lingual Tabs) -->
-        <div class="card border-0 shadow-sm mb-4 bg-white p-4">
-            <h5 class="fw-bold text-gov-blue mb-3 border-bottom pb-2"><i class="fas fa-file-alt text-warning me-2"></i> Agenda / कार्यसूची</h5>
+        <div class="card border-0 shadow-sm mb-4 bg-white p-4 animate-on-scroll">
+            <h5 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--gov-blue);"><i class="fas fa-file-alt text-warning me-2"></i> Agenda / कार्यसूची</h5>
             
             <ul class="nav nav-tabs border-bottom-0 mb-3" id="agendaTab" role="tablist">
                 <li class="nav-item" role="presentation">
@@ -156,9 +186,9 @@ if (isOrganizer()) {
         </div>
 
         <!-- Meeting Tasks -->
-        <div class="card border-0 shadow-sm bg-white p-4">
+        <div class="card border-0 shadow-sm bg-white p-4 animate-on-scroll">
             <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                <h5 class="fw-bold text-gov-blue mb-0"><i class="fas fa-tasks text-success me-2"></i> Action Items & Tasks</h5>
+                <h5 class="fw-bold mb-0" style="color: var(--gov-blue);"><i class="fas fa-tasks text-success me-2"></i> Action Items & Tasks</h5>
                 <?php if (isOrganizer()): ?>
                     <a href="../tasks/create.php?meeting_id=<?php echo $meetingId; ?>" class="btn btn-sm btn-outline-success rounded-3">
                         <i class="fas fa-plus"></i> Assign Task
@@ -167,14 +197,15 @@ if (isOrganizer()) {
             </div>
 
             <?php if (empty($tasks)): ?>
-                <div class="text-center py-4">
-                    <p class="text-muted mb-0">No tasks assigned for this meeting yet.</p>
+                <div class="empty-state">
+                    <i class="bi bi-card-checklist"></i>
+                    <p>No tasks assigned for this meeting yet.</p>
                 </div>
             <?php else: ?>
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-enhanced table-hover align-middle mb-0">
                         <thead>
-                            <tr class="table-light">
+                            <tr>
                                 <th>Task</th>
                                 <th>Assigned Employee</th>
                                 <th>Due Date</th>
@@ -193,16 +224,16 @@ if (isOrganizer()) {
                                     <td>
                                         <?php 
                                         $p = $task['priority'];
-                                        $pBadge = match($p) { 'High'=>'danger', 'Medium'=>'warning text-dark', 'Low'=>'success', default=>'secondary' };
+                                        $pBadge = match($p) { 'High'=>'badge-priority-high', 'Medium'=>'badge-priority-medium', 'Low'=>'badge-priority-low', default=>'bg-secondary' };
                                         ?>
-                                        <span class="badge bg-<?php echo $pBadge; ?>"><?php echo htmlspecialchars($p); ?></span>
+                                        <span class="badge <?php echo $pBadge; ?>"><?php echo htmlspecialchars($p); ?></span>
                                     </td>
                                     <td>
                                         <?php 
                                         $s = $task['status'];
-                                        $sBadge = match($s) { 'Completed'=>'success', 'In Progress'=>'info text-dark', 'Pending'=>'warning text-dark', default=>'secondary' };
+                                        $sBadge = match($s) { 'Completed'=>'badge-status-completed', 'In Progress'=>'badge-status-ongoing', 'Pending'=>'badge-status-scheduled', default=>'bg-secondary' };
                                         ?>
-                                        <span class="badge bg-<?php echo $sBadge; ?>"><?php echo htmlspecialchars($s); ?></span>
+                                        <span class="badge <?php echo $sBadge; ?>"><?php echo htmlspecialchars($s); ?></span>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -215,15 +246,42 @@ if (isOrganizer()) {
 
     <!-- Right Column: Attendee Management -->
     <div class="col-lg-5">
-        <div class="card border-0 shadow-sm bg-white p-4 mb-4">
-            <h5 class="fw-bold text-gov-blue mb-3 border-bottom pb-2"><i class="fas fa-users text-primary me-2"></i> Attendees & RSVPs</h5>
+        <!-- Attendance Stats -->
+        <div class="card border-0 shadow-sm bg-white p-4 mb-4 animate-on-scroll">
+            <h6 class="fw-bold mb-3" style="color: var(--gov-blue);"><i class="fas fa-chart-pie text-primary me-2"></i> Attendance Summary</h6>
+            <div class="d-flex gap-3 flex-wrap">
+                <div class="text-center flex-fill p-2 rounded-3" style="background: #f0fdf4;">
+                    <div class="fw-bold fs-5 text-success"><?php echo $presentCount; ?></div>
+                    <small class="text-muted fw-semibold">Present</small>
+                </div>
+                <div class="text-center flex-fill p-2 rounded-3" style="background: #fef3c7;">
+                    <div class="fw-bold fs-5 text-warning"><?php echo $pendingCount; ?></div>
+                    <small class="text-muted fw-semibold">Pending</small>
+                </div>
+                <div class="text-center flex-fill p-2 rounded-3" style="background: #fef2f2;">
+                    <div class="fw-bold fs-5 text-danger"><?php echo $absentCount; ?></div>
+                    <small class="text-muted fw-semibold">Absent</small>
+                </div>
+            </div>
+            <?php if ($totalAttendees > 0): ?>
+            <div class="progress mt-3" style="height: 8px;">
+                <div class="progress-bar bg-success" style="width: <?php echo round(($presentCount/$totalAttendees)*100); ?>%"></div>
+                <div class="progress-bar bg-warning" style="width: <?php echo round(($pendingCount/$totalAttendees)*100); ?>%"></div>
+                <div class="progress-bar bg-danger" style="width: <?php echo round(($absentCount/$totalAttendees)*100); ?>%"></div>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <div class="card border-0 shadow-sm bg-white p-4 mb-4 animate-on-scroll">
+            <h5 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--gov-blue);"><i class="fas fa-users text-primary me-2"></i> Attendees & RSVPs</h5>
             
             <?php if (isOrganizer() && !empty($nonAttendees)): ?>
                 <!-- Invite attendee dropdown form -->
                 <form action="../../controllers/AttendanceController.php" method="POST" class="mb-4">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                     <input type="hidden" name="action" value="add">
                     <input type="hidden" name="meeting_id" value="<?php echo $meetingId; ?>">
-                    <label class="form-label small fw-bold text-secondary">Invite Employee</label>
+                    <label class="form-label">Invite Employee</label>
                     <div class="d-flex gap-2">
                         <select name="user_id" class="form-select rounded-3" required>
                             <option value="">Select Employee</option>
@@ -231,15 +289,15 @@ if (isOrganizer()) {
                                 <option value="<?php echo $na['id']; ?>"><?php echo htmlspecialchars($na['name']); ?> (<?php echo htmlspecialchars($na['email']); ?>)</option>
                             <?php endforeach; ?>
                         </select>
-                        <button type="submit" class="btn btn-primary rounded-3 px-3" style="background-color: #0b3d5f; border-color: #0b3d5f;">Invite</button>
+                        <button type="submit" class="btn btn-primary rounded-3 px-3">Invite</button>
                     </div>
                 </form>
             <?php endif; ?>
 
             <?php if (empty($attendees)): ?>
-                <div class="text-center py-4 text-muted">
-                    <i class="bi bi-people fs-2"></i>
-                    <p class="mb-0 mt-1">No attendees invited yet.</p>
+                <div class="empty-state">
+                    <i class="bi bi-people"></i>
+                    <p>No attendees invited yet.</p>
                 </div>
             <?php else: ?>
                 <div class="list-group list-group-flush">
@@ -259,13 +317,14 @@ if (isOrganizer()) {
                                 <div class="text-end">
                                     <?php
                                     $aStatus = $att['att_status'];
-                                    $aBadge = match($aStatus) { 'Present'=>'success', 'Absent'=>'danger', 'Pending'=>'warning text-dark', default=>'secondary' };
+                                    $aBadge = match($aStatus) { 'Present'=>'badge-status-completed', 'Absent'=>'badge-status-cancelled', 'Pending'=>'badge-status-scheduled', default=>'bg-secondary' };
                                     ?>
-                                    <span class="badge bg-<?php echo $aBadge; ?> mb-2"><?php echo htmlspecialchars($aStatus); ?></span>
+                                    <span class="badge <?php echo $aBadge; ?> mb-2"><?php echo htmlspecialchars($aStatus); ?></span>
 
                                     <!-- Action form if allowed -->
                                     <?php if ($role === 'Collector' || $role === 'Organizer' || ($role === 'Employee' && $att['user_id'] == $user_id)): ?>
                                         <form action="../../controllers/AttendanceController.php" method="POST" class="d-block mt-1">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                                             <input type="hidden" name="action" value="update">
                                             <input type="hidden" name="attendance_id" value="<?php echo $att['attendance_id']; ?>">
                                             <input type="hidden" name="meeting_id" value="<?php echo $meetingId; ?>">

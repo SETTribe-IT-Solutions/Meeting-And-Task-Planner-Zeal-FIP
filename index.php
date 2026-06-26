@@ -17,7 +17,7 @@ $conn = getDBConnection();
 // Get statistics based on roles
 $user_id = $_SESSION['user_id'];
 $role = $_SESSION['role'];
-$department = $_SESSION['department'];
+$department = $_SESSION['department'] ?? '';
 $today = date('Y-m-d');
 
 if ($role === 'Collector') {
@@ -25,11 +25,32 @@ if ($role === 'Collector') {
     $meetings_result = $conn->query("SELECT COUNT(*) as total FROM meetings");
     $meetings_organized = $meetings_result->fetch_assoc()['total'] ?? 0;
     
-    $upcoming_result = $conn->query("SELECT COUNT(*) as total FROM meetings WHERE meeting_date >= '$today' AND status != 'Cancelled'");
-    $upcoming_meetings = $upcoming_result->fetch_assoc()['total'] ?? 0;
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE meeting_date >= ? AND status != 'Cancelled'");
+    $stmt->bind_param("s", $today);
+    $stmt->execute();
+    $upcoming_meetings = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
     
     $tasks_result = $conn->query("SELECT COUNT(*) as total FROM tasks WHERE status IN ('Pending', 'In Progress')");
     $pending_tasks = $tasks_result->fetch_assoc()['total'] ?? 0;
+
+    $completed_tasks_result = $conn->query("SELECT COUNT(*) as total FROM tasks WHERE status = 'Completed'");
+    $completed_tasks = $completed_tasks_result->fetch_assoc()['total'] ?? 0;
+
+    $total_tasks_result = $conn->query("SELECT COUNT(*) as total FROM tasks");
+    $total_tasks = $total_tasks_result->fetch_assoc()['total'] ?? 0;
+
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE meeting_date = ? AND status != 'Cancelled'");
+    $stmt->bind_param("s", $today);
+    $stmt->execute();
+    $todays_meetings = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks WHERE due_date < ? AND status IN ('Pending', 'In Progress')");
+    $stmt->bind_param("s", $today);
+    $stmt->execute();
+    $overdue_tasks = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+
+    $total_users_result = $conn->query("SELECT COUNT(*) as total FROM users WHERE isDeleted = 'No'");
+    $total_users = $total_users_result->fetch_assoc()['total'] ?? 0;
     
     $upcoming_query = "SELECT m.*, u.name as organizer_name 
                       FROM meetings m 
@@ -38,9 +59,15 @@ if ($role === 'Collector') {
                       ORDER BY m.meeting_date ASC, m.meeting_time ASC 
                       LIMIT 5";
     $stmt = $conn->prepare($upcoming_query);
-    $stmt->bind_param("s", $today);
-    $stmt->execute();
-    $upcoming = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if ($stmt) {
+        $stmt->bind_param("s", $today);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $upcoming = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    } else {
+        error_log('Prepare failed (collector upcoming): ' . $conn->error . ' | Query: ' . $upcoming_query);
+        $upcoming = [];
+    }
 
     $tasks_query = "SELECT t.*, u.name as assignee_name, m.title as meeting_title 
                     FROM tasks t 
@@ -53,19 +80,51 @@ if ($role === 'Collector') {
 } elseif ($role === 'Organizer') {
     // Organizer sees their organized meetings and tasks assigned under them
     $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE organizer_id = ?");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $meetings_organized = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+    if ($stmt) {
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $meetings_organized = $res ? ($res->fetch_assoc()['total'] ?? 0) : 0;
+    } else {
+        error_log('Prepare failed (organizer meetings_organized): ' . $conn->error);
+        $meetings_organized = 0;
+    }
     
     $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE organizer_id = ? AND meeting_date >= ? AND status != 'Cancelled'");
-    $stmt->bind_param("is", $user_id, $today);
-    $stmt->execute();
-    $upcoming_meetings = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+    if ($stmt) {
+        $stmt->bind_param("is", $user_id, $today);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $upcoming_meetings = $res ? ($res->fetch_assoc()['total'] ?? 0) : 0;
+    } else {
+        error_log('Prepare failed (organizer upcoming_meetings): ' . $conn->error);
+        $upcoming_meetings = 0;
+    }
     
     $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks t JOIN meetings m ON t.meeting_id = m.id WHERE m.organizer_id = ? AND t.status IN ('Pending', 'In Progress')");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $pending_tasks = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+    if ($stmt) {
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $pending_tasks = $res ? ($res->fetch_assoc()['total'] ?? 0) : 0;
+    } else {
+        error_log('Prepare failed (organizer pending_tasks): ' . $conn->error);
+        $pending_tasks = 0;
+    }
+
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks t JOIN meetings m ON t.meeting_id = m.id WHERE m.organizer_id = ? AND t.status = 'Completed'");
+    if ($stmt) { $stmt->bind_param("i", $user_id); $stmt->execute(); $completed_tasks = $stmt->get_result()->fetch_assoc()['total'] ?? 0; } else { $completed_tasks = 0; }
+
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks t JOIN meetings m ON t.meeting_id = m.id WHERE m.organizer_id = ?");
+    if ($stmt) { $stmt->bind_param("i", $user_id); $stmt->execute(); $total_tasks = $stmt->get_result()->fetch_assoc()['total'] ?? 0; } else { $total_tasks = 0; }
+
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE organizer_id = ? AND meeting_date = ? AND status != 'Cancelled'");
+    if ($stmt) { $stmt->bind_param("is", $user_id, $today); $stmt->execute(); $todays_meetings = $stmt->get_result()->fetch_assoc()['total'] ?? 0; } else { $todays_meetings = 0; }
+
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks t JOIN meetings m ON t.meeting_id = m.id WHERE m.organizer_id = ? AND t.due_date < ? AND t.status IN ('Pending', 'In Progress')");
+    if ($stmt) { $stmt->bind_param("is", $user_id, $today); $stmt->execute(); $overdue_tasks = $stmt->get_result()->fetch_assoc()['total'] ?? 0; } else { $overdue_tasks = 0; }
+
+    $total_users = 0;
     
     $stmt = $conn->prepare("SELECT m.*, u.name as organizer_name 
                             FROM meetings m 
@@ -73,9 +132,15 @@ if ($role === 'Collector') {
                             WHERE m.organizer_id = ? AND m.meeting_date >= ? AND m.status != 'Cancelled' 
                             ORDER BY m.meeting_date ASC, m.meeting_time ASC 
                             LIMIT 5");
-    $stmt->bind_param("is", $user_id, $today);
-    $stmt->execute();
-    $upcoming = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if ($stmt) {
+        $stmt->bind_param("is", $user_id, $today);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $upcoming = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    } else {
+        error_log('Prepare failed (organizer upcoming list): ' . $conn->error);
+        $upcoming = [];
+    }
 
     $stmt = $conn->prepare("SELECT t.*, u.name as assignee_name, m.title as meeting_title 
                             FROM tasks t 
@@ -84,25 +149,63 @@ if ($role === 'Collector') {
                             WHERE m.organizer_id = ? AND t.status IN ('Pending', 'In Progress') 
                             ORDER BY t.due_date ASC 
                             LIMIT 5");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $active_tasks = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if ($stmt) {
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $active_tasks = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    } else {
+        error_log('Prepare failed (organizer active_tasks): ' . $conn->error);
+        $active_tasks = [];
+    }
 } else {
     // Employee sees meetings in their department / invited to, and tasks assigned to them
     $stmt = $conn->prepare("SELECT COUNT(DISTINCT m.id) as total FROM meetings m LEFT JOIN attendance a ON m.id = a.meeting_id WHERE m.department = ? OR a.user_id = ?");
-    $stmt->bind_param("si", $department, $user_id);
-    $stmt->execute();
-    $meetings_organized = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+    if ($stmt) {
+        $stmt->bind_param("si", $department, $user_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $meetings_organized = $res ? ($res->fetch_assoc()['total'] ?? 0) : 0;
+    } else {
+        error_log('Prepare failed (employee meetings_organized): ' . $conn->error);
+        $meetings_organized = 0;
+    }
 
     $stmt = $conn->prepare("SELECT COUNT(DISTINCT m.id) as total FROM meetings m LEFT JOIN attendance a ON m.id = a.meeting_id WHERE (m.department = ? OR a.user_id = ?) AND m.meeting_date >= ? AND m.status != 'Cancelled'");
-    $stmt->bind_param("sis", $department, $user_id, $today);
-    $stmt->execute();
-    $upcoming_meetings = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+    if ($stmt) {
+        $stmt->bind_param("sis", $department, $user_id, $today);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $upcoming_meetings = $res ? ($res->fetch_assoc()['total'] ?? 0) : 0;
+    } else {
+        error_log('Prepare failed (employee upcoming_meetings): ' . $conn->error);
+        $upcoming_meetings = 0;
+    }
 
     $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks WHERE assigned_to = ? AND status IN ('Pending', 'In Progress')");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $pending_tasks = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+    if ($stmt) {
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $pending_tasks = $res ? ($res->fetch_assoc()['total'] ?? 0) : 0;
+    } else {
+        error_log('Prepare failed (employee pending_tasks): ' . $conn->error);
+        $pending_tasks = 0;
+    }
+
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks WHERE assigned_to = ? AND status = 'Completed'");
+    if ($stmt) { $stmt->bind_param("i", $user_id); $stmt->execute(); $completed_tasks = $stmt->get_result()->fetch_assoc()['total'] ?? 0; } else { $completed_tasks = 0; }
+
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks WHERE assigned_to = ?");
+    if ($stmt) { $stmt->bind_param("i", $user_id); $stmt->execute(); $total_tasks = $stmt->get_result()->fetch_assoc()['total'] ?? 0; } else { $total_tasks = 0; }
+
+    $stmt = $conn->prepare("SELECT COUNT(DISTINCT m.id) as total FROM meetings m LEFT JOIN attendance a ON m.id = a.meeting_id WHERE (m.department = ? OR a.user_id = ?) AND m.meeting_date = ? AND m.status != 'Cancelled'");
+    if ($stmt) { $stmt->bind_param("sis", $department, $user_id, $today); $stmt->execute(); $todays_meetings = $stmt->get_result()->fetch_assoc()['total'] ?? 0; } else { $todays_meetings = 0; }
+
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks WHERE assigned_to = ? AND due_date < ? AND status IN ('Pending', 'In Progress')");
+    if ($stmt) { $stmt->bind_param("is", $user_id, $today); $stmt->execute(); $overdue_tasks = $stmt->get_result()->fetch_assoc()['total'] ?? 0; } else { $overdue_tasks = 0; }
+
+    $total_users = 0;
 
     $stmt = $conn->prepare("SELECT DISTINCT m.*, u.name as organizer_name 
                             FROM meetings m 
@@ -111,9 +214,15 @@ if ($role === 'Collector') {
                             WHERE (m.department = ? OR a.user_id = ?) AND m.meeting_date >= ? AND m.status != 'Cancelled' 
                             ORDER BY m.meeting_date ASC, m.meeting_time ASC 
                             LIMIT 5");
-    $stmt->bind_param("sis", $department, $user_id, $today);
-    $stmt->execute();
-    $upcoming = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if ($stmt) {
+        $stmt->bind_param("sis", $department, $user_id, $today);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $upcoming = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    } else {
+        error_log('Prepare failed (employee upcoming list): ' . $conn->error);
+        $upcoming = [];
+    }
 
     $stmt = $conn->prepare("SELECT t.*, u.name as assignee_name, m.title as meeting_title 
                             FROM tasks t 
@@ -122,35 +231,58 @@ if ($role === 'Collector') {
                             WHERE t.assigned_to = ? AND t.status IN ('Pending', 'In Progress') 
                             ORDER BY t.due_date ASC 
                             LIMIT 5");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $active_tasks = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if ($stmt) {
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $active_tasks = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    } else {
+        error_log('Prepare failed (employee active_tasks): ' . $conn->error);
+        $active_tasks = [];
+    }
 }
+
+$task_completion_pct = $total_tasks > 0 ? round(($completed_tasks / $total_tasks) * 100) : 0;
 
 include __DIR__ . '/includes/header.php';
 ?>
 
-<style>
-    .welcome-card {
-      background: white;
-      border-radius: 20px;
-      padding: 2rem;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.04);
-      max-width: 100%;
-    }
+<!-- Welcome Card -->
+<div class="welcome-card mb-4 animate-on-scroll">
+    <div class="welcome-card-inner">
+        <div class="welcome-card-content">
+            <h2><i class="fas fa-hand-sparkles" style="color: #f9b81b;"></i> Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?></h2>
+            <p style="color: #334155; margin: 0.5rem 0 1.5rem;">Coordinate district meetings, assign tasks, and track progress across Latur talukas.</p>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <div style="background: linear-gradient(135deg, #eef6ff, #dbeafe); padding: 0.7rem 1.3rem; border-radius: 30px; color: #0b3d5f; font-weight: 500; font-size: 0.9rem;">
+                    <i class="fas fa-calendar-plus" style="color: #0b3d5f;"></i> <strong>Meetings:</strong> <?php echo $upcoming_meetings; ?> Upcoming
+                </div>
+                <div style="background: linear-gradient(135deg, #fef3c7, #fde68a); padding: 0.7rem 1.3rem; border-radius: 30px; color: #b45309; font-weight: 500; font-size: 0.9rem;">
+                    <i class="fas fa-tasks" style="color: #b45309;"></i> <strong>Tasks:</strong> <?php echo $pending_tasks; ?> Pending
+                </div>
+                <div style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); padding: 0.7rem 1.3rem; border-radius: 30px; color: #166534; font-weight: 500; font-size: 0.9rem;">
+                    <i class="fas fa-user-shield" style="color: #166534;"></i> <strong>Role:</strong> <?php echo htmlspecialchars($role); ?>
+                </div>
+            </div>
+            <p style="margin-top: 1.5rem; font-style: italic; color: #475569; margin-bottom: 0; font-size: 0.9rem;">
+                <i class="fas fa-quote-left"></i> Efficient planning for Latur's development <i class="fas fa-quote-right"></i>
+            </p>
+        </div>
+        <img class="welcome-card-image" src="<?php echo $basePath; ?>/assets/image_e15bb67f.png" alt="Latur municipal building">
+    </div>
+</div>
 
+<style>
     .welcome-card-inner {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 2rem;
     }
-
     .welcome-card-content {
       flex: 1 1 420px;
       min-width: 0;
     }
-
     .welcome-card-image {
       flex: 0 1 420px;
       max-width: 420px;
@@ -160,19 +292,16 @@ include __DIR__ . '/includes/header.php';
       border-radius: 16px;
       object-fit: cover;
       box-shadow: 0 12px 30px rgba(11, 61, 95, 0.18);
+      transition: transform 0.4s ease;
     }
-
-    .welcome-card h2 {
-      color: #0b3d5f;
-      margin-bottom: 0.8rem;
+    .welcome-card-image:hover {
+      transform: scale(1.02);
     }
-
     @media (max-width: 992px) {
       .welcome-card-inner {
         flex-direction: column;
         align-items: stretch;
       }
-
       .welcome-card-image {
         width: 100%;
         max-width: none;
@@ -181,95 +310,108 @@ include __DIR__ . '/includes/header.php';
     }
 </style>
 
-<div class="welcome-card mb-4">
-    <div class="welcome-card-inner">
-        <div class="welcome-card-content">
-            <h2><i class="fas fa-hand-sparkles" style="color: #f9b81b;"></i> Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?></h2>
-            <p style="color: #334155; margin: 0.5rem 0 1.5rem;">Coordinate district meetings, assign tasks, and track progress across Latur talukas.</p>
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                <div style="background: #eef6ff; padding: 0.8rem 1.5rem; border-radius: 30px; color: #0b3d5f;">
-                    <i class="fas fa-calendar-plus" style="color: #0b3d5f;"></i> <strong>Meetings:</strong> <?php echo $upcoming_meetings; ?> Upcoming
-                </div>
-                <div style="background: #fef3c7; padding: 0.8rem 1.5rem; border-radius: 30px; color: #b45309;">
-                    <i class="fas fa-tasks" style="color: #b45309;"></i> <strong>Tasks:</strong> <?php echo $pending_tasks; ?> Pending
-                </div>
-                <div style="background: #f0fdf4; padding: 0.8rem 1.5rem; border-radius: 30px; color: #166534;">
-                    <i class="fas fa-user-shield" style="color: #166534;"></i> <strong>Role:</strong> <?php echo htmlspecialchars($role); ?>
-                </div>
-            </div>
-            <p style="margin-top: 2rem; font-style: italic; color: #475569; margin-bottom: 0;">
-                <i class="fas fa-quote-left"></i> Efficient planning for Latur's development <i class="fas fa-quote-right"></i>
-            </p>
-        </div>
-        <img class="welcome-card-image" src="<?php echo $basePath; ?>/assets/image_e15bb67f.png" alt="Latur municipal building">
-    </div>
-</div>
-
-<!-- News Ticker -->
-<div class="bg-white border rounded-3 py-2 mb-4 overflow-hidden shadow-sm">
-    <div class="container-fluid px-4">
-        <div class="d-flex align-items-center">
-            <span class="badge bg-danger me-3">LATEST NEWS</span>
-            <marquee class="text-muted small mb-0" behavior="scroll" direction="left" onmouseover="this.stop();" onmouseout="this.start();">
-                Notice: Weekly administrative reviews are scheduled for every Friday. | New HR Policy updates for 2026 are now available under Reports. | Please confirm your attendance for the upcoming District Planning meeting.
-            </marquee>
-        </div>
+<!-- News Ticker (CSS-based) -->
+<div class="news-ticker-modern d-flex align-items-center py-2 mb-4 shadow-sm animate-on-scroll">
+    <span class="ticker-label ms-3"><i class="fas fa-bullhorn"></i> LATEST</span>
+    <div class="ticker-content">
+        <span class="ticker-text">
+            📢 Weekly administrative reviews are scheduled for every Friday. &nbsp;|&nbsp; 📋 New HR Policy updates for 2026 are now available under Reports. &nbsp;|&nbsp; 🔔 Please confirm your attendance for the upcoming District Planning meeting. &nbsp;|&nbsp; ✅ Digital attendance is now mandatory for all government meetings.
+        </span>
     </div>
 </div>
 
 <!-- Statistics Cards -->
 <div class="row g-4 mb-4">
-    <div class="col-md-4">
-        <div class="card border-0 border-start border-4 border-primary h-100 shadow-sm bg-white">
-            <div class="card-body p-4 text-gov-blue">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <p class="text-muted small fw-bold mb-0">TOTAL MEETINGS</p>
-                        <h2 class="mb-0 fw-bold text-dark"><?php echo $meetings_organized; ?></h2>
-                    </div>
-                    <i class="bi bi-calendar-event fs-1 text-primary"></i>
-                </div>
-            </div>
+    <div class="col-xl-3 col-md-6 animate-on-scroll">
+        <div class="card stat-card stat-primary border-0 h-100 p-4">
+            <i class="fas fa-calendar-check stat-icon"></i>
+            <div class="stat-label mb-2">TOTAL MEETINGS</div>
+            <div class="stat-value counter-value" data-target="<?php echo $meetings_organized; ?>">0</div>
+            <div class="stat-trend mt-2"><i class="fas fa-calendar-day me-1"></i> <?php echo $todays_meetings; ?> today</div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card border-0 border-start border-4 border-success h-100 shadow-sm bg-white">
-            <div class="card-body p-4 text-gov-blue">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <p class="text-muted small fw-bold mb-0">UPCOMING MEETINGS</p>
-                        <h2 class="mb-0 fw-bold text-dark"><?php echo $upcoming_meetings; ?></h2>
-                    </div>
-                    <i class="bi bi-clock-history fs-1 text-success"></i>
-                </div>
-            </div>
+    <div class="col-xl-3 col-md-6 animate-on-scroll">
+        <div class="card stat-card stat-success border-0 h-100 p-4">
+            <i class="fas fa-clock stat-icon"></i>
+            <div class="stat-label mb-2">UPCOMING MEETINGS</div>
+            <div class="stat-value counter-value" data-target="<?php echo $upcoming_meetings; ?>">0</div>
+            <div class="stat-trend mt-2"><i class="fas fa-arrow-trend-up me-1"></i> Next 30 days</div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card border-0 border-start border-4 border-warning h-100 shadow-sm bg-white">
-            <div class="card-body p-4 text-gov-blue">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <p class="text-muted small fw-bold mb-0">PENDING TASKS</p>
-                        <h2 class="mb-0 fw-bold text-dark"><?php echo $pending_tasks; ?></h2>
-                    </div>
-                    <i class="bi bi-tasks fs-1 text-warning"></i>
-                </div>
+    <div class="col-xl-3 col-md-6 animate-on-scroll">
+        <div class="card stat-card stat-warning border-0 h-100 p-4">
+            <i class="fas fa-tasks stat-icon"></i>
+            <div class="stat-label mb-2">PENDING TASKS</div>
+            <div class="stat-value counter-value" data-target="<?php echo $pending_tasks; ?>">0</div>
+            <div class="stat-trend mt-2"><i class="fas fa-check-circle me-1"></i> <?php echo $completed_tasks; ?> completed</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 animate-on-scroll">
+        <div class="card stat-card <?php echo $overdue_tasks > 0 ? 'stat-danger' : 'stat-info'; ?> border-0 h-100 p-4">
+            <i class="fas <?php echo $overdue_tasks > 0 ? 'fa-exclamation-triangle' : 'fa-chart-pie'; ?> stat-icon"></i>
+            <div class="stat-label mb-2"><?php echo $overdue_tasks > 0 ? 'OVERDUE TASKS' : 'TASK COMPLETION'; ?></div>
+            <div class="stat-value counter-value" data-target="<?php echo $overdue_tasks > 0 ? $overdue_tasks : $task_completion_pct; ?>">0</div><?php if ($overdue_tasks === 0): ?><span style="font-size:1.2rem;font-weight:700">%</span><?php endif; ?>
+            <div class="stat-trend mt-2">
+                <?php if ($overdue_tasks > 0): ?>
+                    <i class="fas fa-exclamation-circle me-1"></i> Needs attention
+                <?php else: ?>
+                    <i class="fas fa-trophy me-1"></i> <?php echo $completed_tasks; ?> of <?php echo $total_tasks; ?> done
+                <?php endif; ?>
             </div>
         </div>
     </div>
 </div>
 
+<?php if ($role === 'Collector' && $total_users > 0): ?>
+<!-- Additional Stats Row for Collector -->
+<div class="row g-4 mb-4">
+    <div class="col-md-4 animate-on-scroll">
+        <div class="card stat-card stat-purple border-0 h-100 p-4">
+            <i class="fas fa-users stat-icon"></i>
+            <div class="stat-label mb-2">TOTAL USERS</div>
+            <div class="stat-value counter-value" data-target="<?php echo $total_users; ?>">0</div>
+            <div class="stat-trend mt-2"><i class="fas fa-user-check me-1"></i> Active accounts</div>
+        </div>
+    </div>
+    <div class="col-md-4 animate-on-scroll">
+        <div class="card border-0 shadow-sm h-100 p-4">
+            <h6 class="fw-bold text-secondary mb-3" style="font-size: 0.8rem; letter-spacing: 0.05em;">TASK COMPLETION RATE</h6>
+            <div class="progress mb-2" style="height: 12px; border-radius: 10px;">
+                <div class="progress-bar bg-success" role="progressbar" style="width: <?php echo $task_completion_pct; ?>%; border-radius: 10px;" aria-valuenow="<?php echo $task_completion_pct; ?>" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+            <div class="d-flex justify-content-between">
+                <span class="text-muted" style="font-size: 0.8rem;"><?php echo $completed_tasks; ?> completed</span>
+                <span class="fw-bold text-success" style="font-size: 0.9rem;"><?php echo $task_completion_pct; ?>%</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 animate-on-scroll">
+        <div class="card border-0 shadow-sm h-100 p-4">
+            <h6 class="fw-bold text-secondary mb-3" style="font-size: 0.8rem; letter-spacing: 0.05em;">MEETINGS TODAY</h6>
+            <div class="d-flex align-items-center gap-3">
+                <div style="width: 56px; height: 56px; border-radius: 16px; background: linear-gradient(135deg, #0b3d5f, #1a5f7a); display: flex; align-items: center; justify-content: center;">
+                    <span style="color: #f9b81b; font-size: 1.5rem; font-weight: 800;"><?php echo $todays_meetings; ?></span>
+                </div>
+                <div>
+                    <div class="fw-bold text-dark" style="font-size: 1.1rem;"><?php echo $todays_meetings > 0 ? 'Meetings scheduled' : 'No meetings today'; ?></div>
+                    <div class="text-muted" style="font-size: 0.8rem;"><?php echo date('l, d M Y'); ?></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- Upcoming Meetings Section -->
-<div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white py-3 fw-bold text-gov-blue" style="border-bottom: 2px solid #eef2f6;">
+<div class="card border-0 shadow-sm mb-4 animate-on-scroll">
+    <div class="card-header bg-white py-3 fw-bold" style="color: var(--gov-blue); border-bottom: 2px solid #eef2f6;">
         <i class="fas fa-calendar-week text-primary me-2"></i> Upcoming Meetings
     </div>
     <div class="card-body">
         <?php if (empty($upcoming)): ?>
-            <div class="text-center py-4">
-                <i class="bi bi-calendar2-week fs-1 text-muted"></i>
-                <p class="text-muted mt-2">No upcoming meetings found.</p>
+            <div class="empty-state">
+                <i class="bi bi-calendar2-week"></i>
+                <p>No upcoming meetings found.</p>
                 <?php if (isOrganizer()): ?>
                 <a href="<?php echo $basePath; ?>/modules/meetings/create.php" class="btn btn-primary btn-sm rounded-3">
                     <i class="fas fa-plus-circle"></i> Create Meeting
@@ -278,9 +420,9 @@ include __DIR__ . '/includes/header.php';
             </div>
         <?php else: ?>
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-enhanced table-hover align-middle mb-0">
                     <thead>
-                        <tr class="table-light">
+                        <tr>
                             <th>Title</th>
                             <th>Date</th>
                             <th>Time</th>
@@ -294,26 +436,26 @@ include __DIR__ . '/includes/header.php';
                         <tr>
                             <td>
                                 <a href="<?php echo $basePath; ?>/modules/meetings/view.php?id=<?php echo $meeting['id']; ?>" 
-                                   class="text-decoration-none fw-bold text-gov-blue">
+                                   class="text-decoration-none fw-bold" style="color: var(--gov-blue);">
                                     <?php echo htmlspecialchars($meeting['title']); ?>
                                 </a>
                             </td>
                             <td><?php echo date('d M Y', strtotime($meeting['meeting_date'])); ?></td>
-                            <td><?php echo date('g:i A', strtotime($meeting['meeting_time'])); ?></td>
+                            <td><?php echo formatTime12Hour($meeting['meeting_time']); ?></td>
                             <td><?php echo htmlspecialchars($meeting['location']); ?></td>
                             <td><?php echo htmlspecialchars($meeting['organizer_name']); ?></td>
                             <td>
                                 <?php
                                 $status = strtolower($meeting['status']);
                                 $badge_class = match($status) {
-                                    'scheduled' => 'warning',
-                                    'ongoing' => 'info',
-                                    'completed' => 'success',
-                                    'cancelled' => 'danger',
-                                    default => 'secondary'
+                                    'scheduled' => 'badge-status-scheduled',
+                                    'ongoing' => 'badge-status-ongoing',
+                                    'completed' => 'badge-status-completed',
+                                    'cancelled' => 'badge-status-cancelled',
+                                    default => 'bg-secondary'
                                 };
                                 ?>
-                                <span class="badge bg-<?php echo $badge_class; ?>">
+                                <span class="badge <?php echo $badge_class; ?>">
                                     <?php echo ucfirst($status); ?>
                                 </span>
                             </td>
@@ -328,41 +470,41 @@ include __DIR__ . '/includes/header.php';
 
 <!-- Quick Actions and Active Tasks -->
 <div class="row g-4">
-    <div class="col-md-6">
+    <div class="col-md-6 animate-on-scroll">
         <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-white py-3 fw-bold text-gov-blue" style="border-bottom: 2px solid #eef2f6;">
+            <div class="card-header bg-white py-3 fw-bold" style="color: var(--gov-blue); border-bottom: 2px solid #eef2f6;">
                 <i class="fas fa-bolt text-warning me-2"></i> Quick Actions
             </div>
             <div class="card-body">
                 <div class="d-grid gap-3">
                     <?php if (isOrganizer()): ?>
-                    <a href="<?php echo $basePath; ?>/modules/meetings/create.php" class="btn btn-primary py-2 rounded-3" style="background-color: #0b3d5f; border-color: #0b3d5f;">
-                        <i class="fas fa-plus-circle me-1"></i> Create New Meeting
+                    <a href="<?php echo $basePath; ?>/modules/meetings/create.php" class="quick-action-btn text-white" style="background: linear-gradient(135deg, #0b3d5f, #1a5f7a);">
+                        <i class="fas fa-plus-circle"></i> Create New Meeting
                     </a>
-                    <a href="<?php echo $basePath; ?>/modules/tasks/create.php" class="btn btn-warning py-2 rounded-3 text-dark fw-bold">
-                        <i class="fas fa-tasks me-1"></i> Assign New Task
+                    <a href="<?php echo $basePath; ?>/modules/tasks/create.php" class="quick-action-btn text-dark fw-bold" style="background: linear-gradient(135deg, #fbbf24, #f59e0b);">
+                        <i class="fas fa-tasks"></i> Assign New Task
                     </a>
                     <?php endif; ?>
-                    <a href="<?php echo $basePath; ?>/modules/meetings/index.php" class="btn btn-outline-primary py-2 rounded-3">
-                        <i class="fas fa-list me-1"></i> View All Meetings
+                    <a href="<?php echo $basePath; ?>/modules/meetings/index.php" class="quick-action-btn" style="background: #eef6ff; color: #0b3d5f; border: 1.5px solid #bfdbfe;">
+                        <i class="fas fa-list"></i> View All Meetings
                     </a>
-                    <a href="<?php echo $basePath; ?>/modules/users/profile.php" class="btn btn-outline-secondary py-2 rounded-3">
-                        <i class="fas fa-user-circle me-1"></i> View My Profile
+                    <a href="<?php echo $basePath; ?>/modules/users/profile.php" class="quick-action-btn" style="background: #f1f5f9; color: #475569; border: 1.5px solid #e2e8f0;">
+                        <i class="fas fa-user-circle"></i> View My Profile
                     </a>
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-md-6">
+    <div class="col-md-6 animate-on-scroll">
         <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-white py-3 fw-bold text-gov-blue" style="border-bottom: 2px solid #eef2f6;">
+            <div class="card-header bg-white py-3 fw-bold" style="color: var(--gov-blue); border-bottom: 2px solid #eef2f6;">
                 <i class="fas fa-tasks text-success me-2"></i> Active Tasks (Next 5)
             </div>
             <div class="card-body">
                 <?php if (empty($active_tasks)): ?>
-                    <div class="text-center py-4">
-                        <i class="bi bi-check2-circle fs-1 text-success"></i>
-                        <p class="text-muted mt-2">No active tasks assigned.</p>
+                    <div class="empty-state">
+                        <i class="bi bi-check2-circle text-success"></i>
+                        <p>No active tasks assigned.</p>
                     </div>
                 <?php else: ?>
                     <div class="list-group list-group-flush">
@@ -370,12 +512,16 @@ include __DIR__ . '/includes/header.php';
                             <div class="list-group-item px-0 py-3">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1 fw-bold text-dark"><?php echo htmlspecialchars($task['title']); ?></h6>
-                                    <small class="text-danger fw-semibold">Due: <?php echo date('d M', strtotime($task['due_date'])); ?></small>
+                                    <small class="<?php echo (strtotime($task['due_date']) < strtotime($today)) ? 'overdue-text' : 'text-danger'; ?> fw-semibold">Due: <?php echo date('d M', strtotime($task['due_date'])); ?></small>
                                 </div>
                                 <p class="mb-1 text-muted small">Meeting: <?php echo htmlspecialchars($task['meeting_title']); ?></p>
                                 <div class="d-flex justify-content-between align-items-center mt-2">
-                                    <span class="badge bg-light text-dark border small"><?php echo htmlspecialchars($task['priority']); ?> Priority</span>
-                                    <span class="badge bg-warning text-dark small"><?php echo htmlspecialchars($task['status']); ?></span>
+                                    <?php
+                                    $pBadge = match($task['priority']) { 'High'=>'badge-priority-high', 'Medium'=>'badge-priority-medium', 'Low'=>'badge-priority-low', default=>'bg-secondary' };
+                                    $sBadge = match($task['status']) { 'Completed'=>'badge-status-completed', 'In Progress'=>'badge-status-ongoing', 'Pending'=>'badge-status-scheduled', default=>'bg-secondary' };
+                                    ?>
+                                    <span class="badge <?php echo $pBadge; ?>"><?php echo htmlspecialchars($task['priority']); ?> Priority</span>
+                                    <span class="badge <?php echo $sBadge; ?>"><?php echo htmlspecialchars($task['status']); ?></span>
                                 </div>
                             </div>
                         <?php endforeach; ?>
