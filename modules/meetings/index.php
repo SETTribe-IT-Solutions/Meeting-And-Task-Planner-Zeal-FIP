@@ -35,6 +35,7 @@ $cancelledCount = count(array_filter($meetings, fn($m) => strtolower($m['status'
 $userRes = $conn->query('SELECT id, name, email FROM users WHERE isDeleted = "No" ORDER BY name');
 $users = $userRes ? $userRes->fetch_all(MYSQLI_ASSOC) : [];
 $today = date('Y-m-d');
+$canManageTasks = isOrganizer();
 ?>
 <div class="row">
     <div class="col-12">
@@ -140,9 +141,13 @@ $today = date('Y-m-d');
                                 </td>
                                 <td><span class="fw-medium"><?php echo htmlspecialchars($meeting['organizer_name']); ?></span></td>
                                 <td class="text-end">
+                                    <?php if ($canManageTasks): ?>
                                     <a href="../tasks/create.php?meeting_id=<?php echo (int)$meeting['id']; ?>" class="btn btn-sm btn-outline-primary open-add-task-modal" data-meeting-id="<?php echo (int)$meeting['id']; ?>" data-meeting-title="<?php echo htmlspecialchars($meeting['title']); ?>" data-meeting-date="<?php echo htmlspecialchars($meeting['meeting_date']); ?>" data-meeting-department="<?php echo htmlspecialchars($meeting['department']); ?>" data-organizer-id="<?php echo (int)$meeting['organizer_id']; ?>" data-organizer-name="<?php echo htmlspecialchars($meeting['organizer_name']); ?>" onclick="event.stopPropagation();">
                                         <i class="fas fa-plus-circle me-1"></i> Add Task
                                     </a>
+                                    <?php else: ?>
+                                        <span class="text-muted small">View only</span>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -155,6 +160,7 @@ $today = date('Y-m-d');
 
 <?php include_once '../../includes/footer.php'; ?>
 
+<?php if ($canManageTasks): ?>
 <!-- Add Task Modal -->
 <div class="modal fade" id="addTaskModal" tabindex="-1" aria-labelledby="addTaskModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -226,3 +232,4 @@ $today = date('Y-m-d');
         </div>
     </div>
 </div>
+<?php endif; ?>

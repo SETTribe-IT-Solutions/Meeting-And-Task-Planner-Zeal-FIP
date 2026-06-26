@@ -856,25 +856,14 @@ include __DIR__ . '/includes/header.php';
         }
     }
 </style>
-
-<!-- ==================== HEADER ==================== -->
-<header class="gov-header">
-    <div class="gov-header-left">
-        <a href="#" class="gov-header-logo">
-            <span class="logo-icon">🏛</span>
-            <span class="logo-text">
-                DISTRICT LATUR
-                <small>Government of Maharashtra</small>
-            </span>
-        </a>
-    </div>
-    <div class="gov-header-right">
-        <div class="gov-header-user">
-            <span class="user-avatar"><?php echo strtoupper(substr($_SESSION['full_name'] ?? 'U', 0, 1)); ?></span>
-            <span class="user-info">
-                <?php echo htmlspecialchars($_SESSION['full_name'] ?? 'User'); ?>
-                <span class="user-role"><?php echo htmlspecialchars($role); ?></span>
-            </span>
+<!-- Statistics Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-3 col-md-6 animate-on-scroll">
+        <div class="card stat-card stat-primary border-0 h-100 p-4">
+            <i class="fas fa-calendar-check stat-icon"></i>
+            <div class="stat-label mb-2">TOTAL MEETINGS</div>
+            <div class="stat-value counter-value" data-target="<?php echo $meetings_organized; ?>">0</div>
+            <div class="stat-trend mt-2"><i class="fas fa-calendar-day me-1"></i> <?php echo $todays_meetings; ?> today</div>
         </div>
     </div>
 </header>

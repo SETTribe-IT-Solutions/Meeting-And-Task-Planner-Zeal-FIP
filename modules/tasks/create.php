@@ -8,6 +8,12 @@ if (!isset($_SESSION['role'])) {
     exit();
 }
 
+if ($_SESSION['role'] !== 'Organizer') {
+    $_SESSION['error'] = 'You have view-only access to tasks.';
+    header('Location: index.php');
+    exit();
+}
+
 require_once '../../config/db.php';
 include_once '../../includes/header.php';
 
