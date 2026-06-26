@@ -14,14 +14,12 @@ if (!isLoggedIn()) {
     redirect('../modules/users/login.php');
 }
 
-// CSRF verification — same pattern used throughout the application
-$submitted_token = trim($_POST['csrf_token'] ?? '');
-if (empty($submitted_token) || !hash_equals($_SESSION['csrf_token'] ?? '', $submitted_token)) {
-    $_SESSION['error'] = 'Invalid security token. Please refresh the page and try again.';
+if (($_SESSION['role'] ?? '') !== 'Organizer') {
+    $_SESSION['error'] = 'You have view-only access to tasks.';
     redirect('../modules/tasks/index.php');
 }
 
-if (empty($_POST['task_id']) || !isset($_POST['status'])) {
+if (empty($_POST['task_id']) || empty($_POST['status'])) {
     $_SESSION['error'] = 'Invalid request parameters.';
     redirect('../modules/tasks/index.php');
 }
