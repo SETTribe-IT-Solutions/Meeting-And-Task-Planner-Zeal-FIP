@@ -2,30 +2,9 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 // Check if user is logged in
-$isLoggedIn = isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
-
-// Get user name from session with proper fallback
-$userName = 'Guest';
-if ($isLoggedIn) {
-    if (isset($_SESSION['full_name']) && !empty($_SESSION['full_name'])) {
-        $userName = $_SESSION['full_name'];
-    } elseif (isset($_SESSION['user_name']) && !empty($_SESSION['user_name'])) {
-        $userName = $_SESSION['user_name'];
-    } elseif (isset($_SESSION['username']) && !empty($_SESSION['username'])) {
-        $userName = $_SESSION['username'];
-    } elseif (isset($_SESSION['name']) && !empty($_SESSION['name'])) {
-        $userName = $_SESSION['name'];
-    } else {
-        $userName = getUserNameFromDatabase($_SESSION['user_id']);
-    }
-}
-
+$isLoggedIn = isset($_SESSION['user_id']);
+$userName = $_SESSION['full_name'] ?? 'Guest';
 $userRole = $_SESSION['role'] ?? '';
 
 $basePath = defined('APP_URL') ? APP_URL : '';
@@ -128,6 +107,21 @@ if ($isLoggedIn) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js for Dashboards -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+      .chart-wrapper {
+          position: relative;
+          height: 300px;
+          width: 100%;
+      }
+      @media (min-width: 992px) {
+          .chart-wrapper.large-chart { height: 400px; }
+      }
+  </style>
+
   <!-- Font Awesome 6 for icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <!-- Bootstrap Icons -->
@@ -151,41 +145,22 @@ if ($isLoggedIn) {
       display: flex;
       flex-direction: column;
       min-height: 100vh;
-      position: relative;
-    }
-
-    /* Subtle Latur district map outline as watermark pattern */
-    body::before {
-      content: "";
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-image: 
-        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 450" opacity="0.04"><path d="M130 70 L190 50 L250 80 L270 130 L240 170 L260 220 L220 260 L240 310 L200 350 L210 400 L160 410 L120 370 L90 320 L100 260 L70 200 L80 140 L100 90 Z" fill="none" stroke="%231a3a5c" stroke-width="1.8"/><circle cx="170" cy="170" r="9" fill="%231a3a5c" opacity="0.5"/><circle cx="210" cy="290" r="11" fill="%231a3a5c" opacity="0.4"/><path d="M150 110 L170 100 L190 115 L180 135 L155 130 Z" fill="none" stroke="%231a3a5c" stroke-width="1.2"/><path d="M180 370 L200 360 L215 380 L200 400 L175 390 Z" fill="none" stroke="%231a3a5c" stroke-width="1.2"/></svg>');
-      background-repeat: repeat;
-      background-size: 350px 400px;
-      pointer-events: none;
-      z-index: 0;
     }
 
     /* main layout: sidebar + content area */
     .app-container {
       display: flex;
       flex: 1;
-      min-height: 0;
-      position: relative;
-      z-index: 1;
+      min-height: 0; /* important for flex children */
     }
 
-    /* ===== NEW HEADER - EXACTLY MATCHING GOVERNMENT STYLE ===== */
+    /* ===== HEADER ===== */
     .header {
       background: linear-gradient(135deg, #0b3d5f 0%, #1a5f7a 50%, #0b3d5f 100%);
       background-size: 200% 200%;
       animation: gradientShift 8s ease infinite;
       color: white;
-      padding: 0.6rem 2rem;
+      padding: 0.8rem 2rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -194,55 +169,6 @@ if ($isLoggedIn) {
       top: 0;
       z-index: 100;
       flex-wrap: wrap;
-      border-bottom: 3px solid #c9a84c;
-      position: relative;
-      overflow: hidden;
-      min-height: 80px;
-    }
-
-    /* Tricolor stripe at bottom */
-    .header::after {
-      content: "";
-      position: absolute;
-      bottom: -3px;
-      left: 0;
-      width: 100%;
-      height: 5px;
-      background: linear-gradient(90deg, 
-        #ff9933 0%, #ff9933 33.33%, 
-        #ffffff 33.33%, #ffffff 66.66%, 
-        #138847 66.66%, #138847 100%);
-      opacity: 0.8;
-    }
-
-    /* Subtle glow at top */
-    .header::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, #c9a84c, transparent);
-      opacity: 0.5;
-    }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      z-index: 1;
-      flex: 0 0 auto;
-    }
-
-    .header-center {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      z-index: 1;
-      flex: 1;
-      text-align: center;
-      padding: 0 15px;
     }
 
     @keyframes gradientShift {
@@ -254,15 +180,12 @@ if ($isLoggedIn) {
     .logo-area {
       display: flex;
       align-items: center;
-      gap: 15px;
-      z-index: 1;
-      flex: 0 0 auto;
+      gap: 12px;
     }
 
-    /* Emblem styling */
     .district-emblem {
-      width: 55px;
-      height: 55px;
+      width: 45px;
+      height: 45px;
       border-radius: 50%;
       background: #ffffff;
       object-fit: cover;
@@ -284,80 +207,21 @@ if ($isLoggedIn) {
       letter-spacing: 0.5px;
       line-height: 1.2;
       margin-bottom: 0;
-      color: #ffffff;
-      text-shadow: 1px 2px 4px rgba(0,0,0,0.5);
     }
 
     .title-section .subtitle {
-      font-size: 0.65rem;
-      opacity: 0.85;
+      font-size: 0.85rem;
+      opacity: 0.9;
       font-weight: 400;
       display: flex;
       align-items: center;
-      gap: 5px;
-      color: #e8d5a3;
-      letter-spacing: 0.3px;
-    }
-
-    .title-section .subtitle i {
-      font-size: 0.6rem;
-      color: #c9a84c;
-    }
-
-    /* Center header text - exactly like image */
-    .header-center .main-title {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: #ffffff;
-      letter-spacing: 0.3px;
-      text-shadow: 1px 2px 4px rgba(0,0,0,0.3);
-      line-height: 1.4;
-    }
-
-    .header-center .main-title .highlight {
-      color: #c9a84c;
-    }
-
-    .header-center .main-title .separator {
-      color: #c9a84c;
-      margin: 0 4px;
-      opacity: 0.5;
-    }
-
-    .header-center .portal-name {
-      font-size: 0.75rem;
-      color: #e8d5a3;
-      font-weight: 400;
-      letter-spacing: 0.3px;
-      margin-top: 1px;
-    }
-
-    .header-center .portal-name i {
-      color: #c9a84c;
-      margin-right: 4px;
-      font-size: 0.7rem;
-    }
-
-    .header-center .marathi-text {
-      font-size: 0.6rem;
-      color: #a8b8d0;
-      letter-spacing: 0.5px;
-      font-weight: 300;
-      opacity: 0.7;
-      margin-top: 1px;
-    }
-
-    .header-center .marathi-text i {
-      color: #c9a84c;
-      margin: 0 4px;
-      font-size: 0.4rem;
+      gap: 4px;
     }
 
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 15px;
-      z-index: 1;
+      gap: 20px;
     }
 
     .date-badge {
@@ -366,7 +230,7 @@ if ($isLoggedIn) {
       -webkit-backdrop-filter: blur(10px);
       padding: 0.5rem 1.2rem;
       border-radius: 30px;
-      font-size: 0.7rem;
+      font-size: 0.9rem;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -390,22 +254,16 @@ if ($isLoggedIn) {
       transition: all 0.3s ease;
       color: white;
       text-decoration: none;
-      border: 1px solid rgba(255,255,255,0.1);
     }
 
     .user-profile:hover {
-      background: rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.25);
       color: white;
       transform: translateY(-1px);
     }
 
-    .user-profile i.fa-user-circle {
+    .user-profile i {
       font-size: 1.3rem;
-      color: #c9a84c;
-    }
-
-    .user-profile span {
-      font-size: 0.8rem;
     }
 
     .user-profile.dropdown-toggle::after,
@@ -415,7 +273,8 @@ if ($isLoggedIn) {
 
     .notification-icon {
       position: relative;
-      font-size: 1.1rem;
+      font-size: 1.3rem;
+      margin-right: 8px;
       cursor: pointer;
       transition: transform 0.3s ease;
       background: transparent;
@@ -438,9 +297,9 @@ if ($isLoggedIn) {
       background: linear-gradient(135deg, #f97316, #ef4444);
       color: white;
       border-radius: 50%;
-      width: 17px;
-      height: 17px;
-      font-size: 0.55rem;
+      width: 18px;
+      height: 18px;
+      font-size: 0.7rem;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -563,15 +422,15 @@ if ($isLoggedIn) {
     }
 
     .nav-link.active i {
-      color: #c9a84c;
+      color: #f9b81b;
     }
 
     .sidebar-footer {
       margin-top: auto;
-      border-top: 1px solid #cbd5e0;
+      border-top: 1px solid #e0e7ef;
       padding-top: 1.2rem;
       font-size: 0.8rem;
-      color: #475569;
+      color: #64748b;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -594,10 +453,11 @@ if ($isLoggedIn) {
     }
 
     .latur-badge i {
-      color: #c05621;
+      color: #f97316;
       font-size: 1.4rem;
     }
 
+    /* main content placeholder */
     .main-content {
       flex: 1;
       padding: 2rem;
@@ -666,68 +526,10 @@ if ($isLoggedIn) {
       .header-actions .date-badge i { margin: 0; }
       .title-section h1 { font-size: 1.2rem; }
     }
-
-    @media (max-width: 768px) {
-      .header {
-        flex-direction: row;
-        align-items: center;
-        gap: 6px;
-        padding: 0.4rem 0.6rem;
-        min-height: 60px;
-      }
-      .sidebar-toggle-btn {
-        display: inline-flex;
-      }
-      .sidebar {
-        position: fixed;
-        left: -280px;
-        top: 0;
-        height: 100vh;
-        z-index: 200;
-        box-shadow: 4px 0 20px rgba(0,0,0,0.15);
-      }
-      .sidebar.sidebar-open {
-        left: 0;
-      }
-      .header-actions .date-badge span { display: none; }
-      .header-actions .date-badge { padding: 0.25rem 0.6rem; }
-      .header-actions .date-badge i { margin: 0; }
-      .title-section h1 { font-size: 0.9rem; }
-      .title-section .subtitle { font-size: 0.5rem; }
-      .title-section .government-text { font-size: 0.45rem; }
-      .district-emblem { width: 35px; height: 35px; padding: 3px; border-width: 2px; }
-      .header-left { gap: 6px; }
-      .header-right .user-profile span { display: none; }
-      .header-right .user-profile { padding: 0.25rem 0.5rem; }
-      .header-center .main-title { font-size: 0.7rem; }
-      .header-center .portal-name { font-size: 0.5rem; }
-      .header-center .marathi-text { font-size: 0.45rem; }
-      .header-center .marathi-text i { margin: 0 2px; }
-      .header-actions .notification-icon { font-size: 0.9rem; }
-      .header-actions .notification-badge { width: 15px; height: 15px; font-size: 0.45rem; top: -2px; right: -4px; }
-      .main-content { padding: 1rem; }
-    }
-
-    @media (max-width: 480px) {
-      .header { padding: 0.3rem 0.4rem; min-height: 50px; }
-      .title-section h1 { font-size: 0.7rem; }
-      .title-section .subtitle { display: none; }
-      .title-section .government-text { font-size: 0.4rem; }
-      .district-emblem { width: 28px; height: 28px; padding: 2px; border-width: 2px; }
-      .header-left { gap: 4px; }
-      .header-center .main-title { font-size: 0.55rem; }
-      .header-center .portal-name { display: none; }
-      .header-center .marathi-text { font-size: 0.4rem; }
-      .header-actions .date-badge { display: none; }
-      .header-actions .user-profile i.fa-user-circle { font-size: 1rem; }
-      .header-actions .user-profile { padding: 0.2rem 0.4rem; }
-      .header-actions .notification-icon { font-size: 0.8rem; }
-      .header-actions .notification-badge { width: 13px; height: 13px; font-size: 0.4rem; top: -2px; right: -3px; }
-    }
   </style>
 </head>
 <body>
-  <!-- NEW HEADER - EXACTLY MATCHING YOUR IMAGE -->
+  <!-- HEADER -->
   <header class="header">
     <div class="d-flex align-items-center gap-3">
       <?php if ($isLoggedIn): ?>
@@ -745,24 +547,7 @@ if ($isLoggedIn) {
         </div>
       </a>
     </div>
-
-    <!-- Center Section: Main Government Title - EXACTLY AS IN IMAGE -->
-    <div class="header-center">
-      <div class="main-title">
-        DISTRICT <span class="highlight">LATUR</span><span class="separator">,</span> 
-        <span style="font-weight: 400;">GOVERNMENT OF MAHARASHTRA</span>
-      </div>
-      <div class="portal-name">
-        <i class="fas fa-building-columns"></i>
-        Collectorate Institutional Inter-Departmental Monitoring Portal
-      </div>
-      <div class="marathi-text">
-        <i class="fas fa-star"></i> लातूर जिल्हा <i class="fas fa-star"></i>
-      </div>
-    </div>
-
-    <!-- Right Section: Date, Notifications, User -->
-    <div class="header-right">
+    <div class="header-actions">
       <div class="date-badge">
         <i class="far fa-calendar-alt"></i>
         <span id="liveDate"></span>
@@ -861,7 +646,7 @@ if ($isLoggedIn) {
             <span>Reports</span>
           </a>
         </li>
-        <?php if (function_exists('isOrganizer') && isOrganizer()): ?>
+        <?php if (isOrganizer()): ?>
         <li class="nav-item">
           <a href="<?php echo $basePath; ?>/modules/users/index.php" class="nav-link <?php echo strpos($currentPath, 'users/index') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'users/index') !== false ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-user-cog"></i>

@@ -15,7 +15,6 @@ include_once '../../includes/header.php';
 $conn = getDBConnection();
 $user_id = $_SESSION['user_id'];
 $role = $_SESSION['role'];
-$canManageTasks = ($role === 'Organizer');
 
 // Filters
 $statusFilter = isset($_GET['status']) ? sanitizeInput($_GET['status']) : '';
@@ -59,32 +58,25 @@ if (!empty($priorityFilter)) {
     $types .= "s";
 }
 if (!empty($searchQuery)) {
-    $sql .= " AND (t.title LIKE ? OR m.title LIKE ? OR ua.name LIKE ? OR o.name LIKE ?)";
+    $sql .= " AND (t.title LIKE ? OR m.title LIKE ? OR ua.name LIKE ?)";
     $searchWildcard = "%" . $searchQuery . "%";
     $params[] = $searchWildcard;
     $params[] = $searchWildcard;
     $params[] = $searchWildcard;
-    $params[] = $searchWildcard;
-    $types .= "ssss";
+    $types .= "sss";
 }
 
-// Group by task id to allow GROUP_CONCAT
+// GROUP BY must follow all WHERE conditions, not precede them
 $sql .= " GROUP BY t.id";
 
 $sql .= " ORDER BY t.due_date ASC";
 
 $stmt = $conn->prepare($sql);
-if (!$stmt) {
-    error_log('Task list query prepare failed: ' . $conn->error . ' | Query: ' . $sql);
-    $_SESSION['error'] = 'Unable to load tasks right now.';
-    $tasks = [];
-} else {
 if (!empty($params)) {
     $stmt->bind_param($types, ...$params);
 }
 $stmt->execute();
 $tasks = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-}
 
 // If requested via AJAX, return JSON list of tasks for client-side refresh
 if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
@@ -123,9 +115,9 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                     <h3 class="fw-bold mb-1" style="color: var(--gov-blue);">Task Board</h3>
                     <p class="text-muted mb-0">Monitor responsibilities and update completion status.</p>
                 </div>
-                <?php if ($canManageTasks): ?>
+                <?php if ($role === 'Organizer' || $role === 'Collector'): ?>
                 <a href="create.php" class="btn btn-primary rounded-3 px-3 py-2">
-                    <i class="fas fa-plus-circle me-1"></i> Assign New Task
+                    <i class="fas fa-plus-circle me-1"></i> Assign Task
                 </a>
                 <?php endif; ?>
             </div>
@@ -284,7 +276,8 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                                         <span class="badge <?php echo $sClass; ?>"><?php echo htmlspecialchars($status); ?></span>
                                     </td>
                                     <td class="text-end">
-                                        <?php if ($canManageTasks): ?>
+                                        <?php if ($role === 'Employee'): ?>
+                                            <!-- Employee update actions -->
                                             <form action="../../controllers/UpdateTaskStatusController.php" method="POST" class="d-inline-block">
                                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                                                 <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
@@ -294,8 +287,30 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                                                     <option value="Completed" <?php echo $status === 'Completed' ? 'selected' : ''; ?>>Completed</option>
                                                 </select>
                                             </form>
+                                        <?php elseif ($role === 'Organizer' || $role === 'Collector'): ?>
+                                            <!-- Admin/Organizer update actions -->
+                                            <form action="../../controllers/UpdateTaskStatusController.php" method="POST" class="d-inline-block mb-1">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                                <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
+                                                <select name="status" class="form-select form-select-sm d-inline-block rounded-3 w-auto" onchange="this.form.submit()">
+                                                    <option value="Pending" <?php echo $status === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                                                    <option value="In Progress" <?php echo $status === 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
+                                                    <option value="Completed" <?php echo $status === 'Completed' ? 'selected' : ''; ?>>Completed</option>
+                                                </select>
+                                            </form>
+                                            <a href="create.php?id=<?php echo $task['id']; ?>" class="btn btn-sm btn-outline-primary ms-1">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <form action="../../controllers/TaskController.php" method="POST" class="d-inline-block ms-1" onsubmit="return confirm('Are you sure you want to delete this task?');">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                                <input type="hidden" name="action" value="delete">
+                                                <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </form>
                                         <?php else: ?>
-                                            <span class="text-muted small">View only</span>
+                                            <span class="text-muted small">No actions available</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>

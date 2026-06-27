@@ -103,7 +103,7 @@ function getDBConnection() {
         $conn->set_charset("utf8mb4");
         
         // Check if tables exist
-        $requiredTables = ['departments', 'users', 'meetings', 'tasks', 'attendance', 'meeting_translations'];
+        $requiredTables = ['departments', 'users', 'meetings', 'tasks', 'attendance', 'meeting_translations', 'task_assignments'];
         $tablesExist = true;
         
         $result = $conn->query("SHOW TABLES");
@@ -128,6 +128,8 @@ function getDBConnection() {
         }
 
         ensureDepartmentStructure($conn);
+        ensureAttendanceStructure($conn);
+        ensureTaskAssignmentsTable($conn);
         
         return $conn;
     } catch (Exception $e) {
@@ -302,5 +304,40 @@ function formatTime12Hour($time) {
         return str_pad($hour, 2, '0', STR_PAD_LEFT) . ':' . $minute . ' ' . $ampm;
     }
     return $time;
+}
+/**
+ * Ensure attendance table has 'Late' status and check_in_time column.
+ * Called during DB initialization to auto-migrate schema.
+ */
+function ensureAttendanceStructure($conn) {
+    // Add 'Late' to status ENUM if not already present
+    $colCheck = $conn->query("SHOW COLUMNS FROM attendance LIKE 'status'");
+    if ($colCheck && $colCheck->num_rows > 0) {
+        $row = $colCheck->fetch_assoc();
+        if (strpos($row['Type'], 'Late') === false) {
+            $conn->query("ALTER TABLE attendance MODIFY COLUMN status ENUM('Present','Absent','Pending','Late') DEFAULT 'Pending'");
+        }
+    }
+
+    // Add check_in_time column if not exists
+    $timeCheck = $conn->query("SHOW COLUMNS FROM attendance LIKE 'check_in_time'");
+    if ($timeCheck && $timeCheck->num_rows === 0) {
+        $conn->query("ALTER TABLE attendance ADD COLUMN check_in_time TIME NULL AFTER status");
+    }
+}
+
+/**
+ * Ensure task_assignments table exists for multi-assignee support.
+ * Called during DB initialization to auto-migrate schema.
+ */
+function ensureTaskAssignmentsTable($conn) {
+    $conn->query("CREATE TABLE IF NOT EXISTS task_assignments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        task_id INT NOT NULL,
+        user_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 ?>

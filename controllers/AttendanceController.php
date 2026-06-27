@@ -32,20 +32,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $attendanceId = isset($_POST['attendance_id']) ? (int)$_POST['attendance_id'] : 0;
 
         // Whitelist: only accept known attendance status values
-        $ALLOWED_ATT_STATUSES = ['Present', 'Absent', 'Pending'];
+        $ALLOWED_ATT_STATUSES = ['Present', 'Absent', 'Pending', 'Late'];
         $rawStatus = isset($_POST['status']) ? trim($_POST['status']) : 'Pending';
         $status    = in_array($rawStatus, $ALLOWED_ATT_STATUSES, true) ? $rawStatus : 'Pending';
 
         $remarks = isset($_POST['remarks']) ? trim(stripslashes($_POST['remarks'])) : '';
 
+        // Auto-record check_in_time when marking Present or Late
+        $checkInTime = null;
+        if (in_array($status, ['Present', 'Late'])) {
+            $checkInTime = date('H:i:s');
+        }
+
         if ($role === 'Employee') {
             // Employees can only update their own status
-            $stmt = $conn->prepare("UPDATE attendance SET status = ?, remarks = ? WHERE id = ? AND user_id = ?");
-            $stmt->bind_param("ssii", $status, $remarks, $attendanceId, $user_id);
+            $stmt = $conn->prepare("UPDATE attendance SET status = ?, remarks = ?, check_in_time = COALESCE(?, check_in_time) WHERE id = ? AND user_id = ?");
+            $stmt->bind_param("sssii", $status, $remarks, $checkInTime, $attendanceId, $user_id);
         } else {
             // Organizers and Collectors can update anyone's attendance
-            $stmt = $conn->prepare("UPDATE attendance SET status = ?, remarks = ? WHERE id = ?");
-            $stmt->bind_param("ssi", $status, $remarks, $attendanceId);
+            $stmt = $conn->prepare("UPDATE attendance SET status = ?, remarks = ?, check_in_time = COALESCE(?, check_in_time) WHERE id = ?");
+            $stmt->bind_param("sssi", $status, $remarks, $checkInTime, $attendanceId);
         }
 
         if ($stmt->execute()) {
