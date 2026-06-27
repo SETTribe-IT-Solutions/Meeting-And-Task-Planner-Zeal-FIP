@@ -18,6 +18,7 @@ $old = $_SESSION['user_form_old'] ?? ['name' => '', 'department' => '', 'email' 
 $errors = $_SESSION['user_form_errors'] ?? [];
 unset($_SESSION['user_form_errors']);
 
+$currentRole = $_SESSION['role'];
 $result = $conn->query("SELECT id, name, email, role, department FROM users WHERE isDeleted = 'No' ORDER BY id DESC");
 $users = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 
@@ -43,6 +44,7 @@ $organizerCount = count(array_filter($users, fn($u) => $u['role'] === 'Organizer
         </div>
     </div>
 
+    <?php if ($currentRole === 'Organizer'): ?>
     <div class="col-lg-4 animate-on-scroll">
         <div class="card border-0 shadow-sm bg-white p-4">
             <h5 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--gov-blue);">
@@ -64,6 +66,7 @@ $organizerCount = count(array_filter($users, fn($u) => $u['role'] === 'Organizer
             <?php endif; ?>
 
             <form action="../../controllers/UserController.php" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                 <div class="mb-3">
                     <label class="form-label">User Name</label>
                     <input type="text" name="name" class="form-control rounded-3" value="<?php echo htmlspecialchars($old['name'] ?? ''); ?>" required minlength="3" maxlength="100">
@@ -86,6 +89,14 @@ $organizerCount = count(array_filter($users, fn($u) => $u['role'] === 'Organizer
                     <input type="email" name="email" class="form-control rounded-3" value="<?php echo htmlspecialchars($old['email'] ?? ''); ?>" required maxlength="150">
                 </div>
 
+                <div class="mb-3">
+                    <label class="form-label">Role</label>
+                    <select name="role" class="form-select rounded-3" required>
+                        <option value="Employee" <?php echo (($old['role'] ?? 'Employee') === 'Employee') ? 'selected' : ''; ?>>Employee</option>
+                        <option value="Organizer" <?php echo (($old['role'] ?? '') === 'Organizer') ? 'selected' : ''; ?>>Organizer</option>
+                    </select>
+                </div>
+
                 <div class="mb-4">
                     <label class="form-label">Password</label>
                     <input type="password" name="password" class="form-control rounded-3" required minlength="8" maxlength="64">
@@ -98,6 +109,7 @@ $organizerCount = count(array_filter($users, fn($u) => $u['role'] === 'Organizer
             </form>
         </div>
     </div>
+    <?php endif; ?>
 
     <div class="col-lg-8 animate-on-scroll">
         <div class="card border-0 shadow-sm bg-white p-4" id="usersTableWrapper" data-paginate data-per-page="10">

@@ -66,6 +66,16 @@ $assignedTo = isset($assignedIds[0]) ? (int)$assignedIds[0] : 0;
 
 try {
     $conn = getDBConnection();
+
+    // Guard: tasks may only be created for Completed meetings
+    $mtgChk = $conn->prepare("SELECT status FROM meetings WHERE id = ? LIMIT 1");
+    $mtgChk->bind_param('i', $meetingId);
+    $mtgChk->execute();
+    $mtgRow = $mtgChk->get_result()->fetch_assoc();
+    if (!$mtgRow || strtolower($mtgRow['status']) !== 'completed') {
+        failTaskCreation('Tasks can only be created for Completed meetings.', $isAjax);
+    }
+
     $stmt = $conn->prepare(
         "INSERT INTO tasks (meeting_id, title, assigned_to, due_date, priority, notes) VALUES (?, ?, ?, ?, ?, ?)"
     );

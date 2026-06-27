@@ -9,6 +9,7 @@ if (!isset($_SESSION['role']) || !isOrganizer()) {
     header('Location: ../users/login.php');
     exit();
 }
+$currentRole = $_SESSION['role'];
 
 include_once '../../includes/header.php';
 
@@ -38,6 +39,7 @@ $activeDepts = count(array_filter($departments, fn($d) => ($d['is_active'] ?? 'Y
         </div>
     </div>
 
+    <?php if ($currentRole === 'Organizer'): ?>
     <div class="col-lg-4 animate-on-scroll">
         <div class="card border-0 shadow-sm bg-white p-4">
             <h5 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--gov-blue);">
@@ -58,6 +60,7 @@ $activeDepts = count(array_filter($departments, fn($d) => ($d['is_active'] ?? 'Y
             <?php endif; ?>
 
             <form action="../../controllers/DepartmentController.php" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                 <input type="hidden" name="action" value="create">
                 <div class="mb-3">
                     <label class="form-label">Department Name</label>
@@ -73,6 +76,7 @@ $activeDepts = count(array_filter($departments, fn($d) => ($d['is_active'] ?? 'Y
             </form>
         </div>
     </div>
+    <?php endif; ?>
 
     <div class="col-lg-8 animate-on-scroll">
         <div class="card border-0 shadow-sm bg-white p-4" id="deptTableWrapper" data-paginate data-per-page="10">
@@ -116,15 +120,20 @@ $activeDepts = count(array_filter($departments, fn($d) => ($d['is_active'] ?? 'Y
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-end">
+                                        <?php if ($currentRole === 'Organizer'): ?>
                                         <form action="../../controllers/DepartmentController.php" method="POST" class="d-inline-block" onsubmit="return confirm('Are you sure you want to toggle this department?');">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                                             <input type="hidden" name="action" value="toggle">
                                             <input type="hidden" name="department_id" value="<?php echo $dept['id']; ?>">
                                             <input type="hidden" name="is_active" value="<?php echo ($dept['is_active'] ?? 'Yes') === 'Yes' ? 'No' : 'Yes'; ?>">
-                                            <button type="submit" class="btn btn-sm <?php echo ($dept['is_active'] ?? 'Yes') === 'Yes' ? 'btn-outline-danger' : 'btn-outline-success'; ?> rounded-3" 
-                                                    data-bs-toggle="tooltip" title="<?php echo ($dept['is_active'] ?? 'Yes') === 'Yes' ? 'Deactivate' : 'Activate'; ?>">
+                                            <button type="submit" class="btn btn-sm <?php echo ($dept['is_active'] ?? 'Yes') === 'Yes' ? 'btn-outline-danger' : 'btn-outline-success'; ?> rounded-3"
+                                                    title="<?php echo ($dept['is_active'] ?? 'Yes') === 'Yes' ? 'Deactivate' : 'Activate'; ?>">
                                                 <i class="fas <?php echo ($dept['is_active'] ?? 'Yes') === 'Yes' ? 'fa-toggle-on' : 'fa-toggle-off'; ?>"></i>
                                             </button>
                                         </form>
+                                        <?php else: ?>
+                                        <span class="text-muted small">View only</span>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

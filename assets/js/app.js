@@ -32,7 +32,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Use IntersectionObserver for scroll-triggered counters
+    // Use IntersectionObserver for scroll-triggered counters.
+    // Threshold 0.1 (not 0.3) because counter elements sit inside animate-on-scroll
+    // wrappers that start at opacity:0 — some browsers skip intersection checks on
+    // children of invisible ancestors with a higher threshold.
     if ('IntersectionObserver' in window) {
         var counterObserver = new IntersectionObserver(function (entries) {
             entries.forEach(function (entry) {
@@ -41,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     counterObserver.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.3 });
+        }, { threshold: 0.1 });
 
         document.querySelectorAll('.counter-value').forEach(function (el) {
             counterObserver.observe(el);
@@ -49,6 +52,10 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
         animateCounters();
     }
+
+    // Fallback: fire after the fade-in animation (0.6s) completes so any counter
+    // whose observer was skipped due to opacity:0 ancestor still animates.
+    setTimeout(animateCounters, 700);
 
     // ═══════════════════════════════════════
     // 2. SCROLL-TRIGGERED FADE-IN ANIMATIONS
@@ -80,9 +87,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!tbody) return;
 
         var allRows = Array.from(tbody.querySelectorAll('tr'));
-        if (allRows.length <= 5) return; // Don't paginate tiny tables
-
         var defaultPerPage = parseInt(wrapper.getAttribute('data-per-page')) || 10;
+        if (allRows.length < defaultPerPage) return; // Don't paginate if fewer rows than one page
+
         var currentPage = 1;
         var perPage = defaultPerPage;
         var filteredRows = allRows.slice();
@@ -597,8 +604,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function getUsersByDeptPath() {
         var path = window.location.pathname;
         if (path.indexOf('/modules/meetings/') !== -1) return '../../controllers/GetUsersByDepartment.php';
-        if (path.indexOf('/modules/tasks/') !== -1) return '../controllers/GetUsersByDepartment.php';
-        return '/controllers/GetUsersByDepartment.php';
+        if (path.indexOf('/modules/tasks/') !== -1) return '../../controllers/GetUsersByDepartment.php';
+        return '../../controllers/GetUsersByDepartment.php';
     }
 
     function populateUsersForDepartment(department, selectEl, preselected) {
@@ -620,16 +627,13 @@ document.addEventListener('DOMContentLoaded', function () {
             }).catch(function () { /* ignore fetch errors */ });
     }
 
-    // Wire up department selects if present on page
-    ['department_select', 'modal_department_select'].forEach(function (id) {
-        var deptEl = document.getElementById(id);
-        if (!deptEl) return;
-        deptEl.addEventListener('change', function () {
-            var dept = this.value;
-            var targetId = id === 'modal_department_select' ? 'modal_assigned_to' : 'assigned_to_select';
-            var selectEl = document.getElementById(targetId);
-            populateUsersForDepartment(dept, selectEl, []);
+    // Wire up modal department select (used in meetings list quick-add task modal)
+    var modalDeptEl = document.getElementById('modal_department_select');
+    if (modalDeptEl) {
+        var modalAssigneeEl = document.getElementById('modal_assigned_to');
+        modalDeptEl.addEventListener('change', function () {
+            populateUsersForDepartment(this.value, modalAssigneeEl, []);
         });
-    });
+    }
 
 });

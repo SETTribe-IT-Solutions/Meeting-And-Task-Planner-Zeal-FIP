@@ -5,8 +5,8 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/../config/db.php';
 
-if (!isLoggedIn() || !isOrganizer()) {
-    $_SESSION['error'] = 'Only organizers and collectors can manage users.';
+if (!isLoggedIn() || $_SESSION['role'] !== 'Organizer') {
+    $_SESSION['error'] = 'Only Organizers can manage users.';
     header('Location: ../index.php');
     exit();
 }
@@ -20,12 +20,14 @@ $name = trim($_POST['name'] ?? '');
 $department = trim($_POST['department'] ?? '');
 $email = trim($_POST['email'] ?? '');
 $password = $_POST['password'] ?? '';
+$role = trim($_POST['role'] ?? 'Employee');
 $errors = [];
 
 $_SESSION['user_form_old'] = [
     'name' => $name,
     'department' => $department,
-    'email' => $email
+    'email' => $email,
+    'role' => $role
 ];
 
 if ($name === '') {
@@ -40,6 +42,10 @@ if ($department === '') {
     $errors[] = 'Department is required.';
 } elseif (!in_array($department, getDepartments(), true)) {
     $errors[] = 'Please select a valid department.';
+}
+
+if (!in_array($role, ['Employee', 'Organizer'], true)) {
+    $errors[] = 'Please select a valid role.';
 }
 
 if ($email === '') {
@@ -76,7 +82,6 @@ try {
         exit();
     }
 
-    $role = 'Employee';
     $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
     $stmt = $conn->prepare(

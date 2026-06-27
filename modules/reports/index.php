@@ -22,48 +22,34 @@ $today = date('Y-m-d');
 $searchQuery = isset($_GET['search']) ? sanitizeInput($_GET['search']) : '';
 
 // 1. Fetch meeting statistics
-if ($role === 'Collector') {
-    $mTotal = $conn->query("SELECT COUNT(*) as total FROM meetings")->fetch_assoc()['total'] ?? 0;
-    $mCompleted = $conn->query("SELECT COUNT(*) as total FROM meetings WHERE status = 'Completed'")->fetch_assoc()['total'] ?? 0;
-    $mUpcoming = $conn->query("SELECT COUNT(*) as total FROM meetings WHERE meeting_date >= '$today' AND status != 'Cancelled'")->fetch_assoc()['total'] ?? 0;
-    
-    $tTotal = $conn->query("SELECT COUNT(*) as total FROM tasks")->fetch_assoc()['total'] ?? 0;
-    $tPending = $conn->query("SELECT COUNT(*) as total FROM tasks WHERE status = 'Pending'")->fetch_assoc()['total'] ?? 0;
-    $tCompleted = $conn->query("SELECT COUNT(*) as total FROM tasks WHERE status = 'Completed'")->fetch_assoc()['total'] ?? 0;
-    $tInProgress = $conn->query("SELECT COUNT(*) as total FROM tasks WHERE status = 'In Progress'")->fetch_assoc()['total'] ?? 0;
-} elseif ($role === 'Organizer') {
-    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE organizer_id = ?");
-    $stmt->bind_param("i", $user_id);
+if ($role === 'Collector' || $role === 'Organizer') {
+    // Both see all data — Organizer is super admin
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings");
     $stmt->execute();
     $mTotal = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
 
-    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE organizer_id = ? AND status = 'Completed'");
-    $stmt->bind_param("i", $user_id);
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE status = 'Completed'");
     $stmt->execute();
     $mCompleted = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
 
-    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE organizer_id = ? AND meeting_date >= ? AND status != 'Cancelled'");
-    $stmt->bind_param("is", $user_id, $today);
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE meeting_date >= ? AND status != 'Cancelled'");
+    $stmt->bind_param("s", $today);
     $stmt->execute();
     $mUpcoming = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
 
-    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks t JOIN meetings m ON t.meeting_id = m.id WHERE m.organizer_id = ?");
-    $stmt->bind_param("i", $user_id);
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks");
     $stmt->execute();
     $tTotal = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
 
-    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks t JOIN meetings m ON t.meeting_id = m.id WHERE m.organizer_id = ? AND t.status = 'Pending'");
-    $stmt->bind_param("i", $user_id);
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks WHERE status = 'Pending'");
     $stmt->execute();
     $tPending = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
 
-    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks t JOIN meetings m ON t.meeting_id = m.id WHERE m.organizer_id = ? AND t.status = 'Completed'");
-    $stmt->bind_param("i", $user_id);
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks WHERE status = 'Completed'");
     $stmt->execute();
     $tCompleted = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
 
-    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks t JOIN meetings m ON t.meeting_id = m.id WHERE m.organizer_id = ? AND t.status = 'In Progress'");
-    $stmt->bind_param("i", $user_id);
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM tasks WHERE status = 'In Progress'");
     $stmt->execute();
     $tInProgress = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
 } else {
@@ -118,11 +104,7 @@ $reportSql = "SELECT m.id, m.title, m.meeting_date, m.department, m.status,
 $params = [];
 $types = "";
 
-if ($role === 'Organizer') {
-    $reportSql .= " WHERE m.organizer_id = ?";
-    $params[] = $user_id;
-    $types .= "i";
-} elseif ($role === 'Employee') {
+if ($role === 'Employee') {
     $reportSql .= " LEFT JOIN attendance a ON m.id = a.meeting_id WHERE (m.department = ? OR a.user_id = ?)";
     $params[] = $department;
     $params[] = $user_id;

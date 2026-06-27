@@ -34,21 +34,15 @@ $baseFrom = "FROM tasks t
             LEFT JOIN task_assignments ta ON ta.task_id = t.id
             LEFT JOIN users ua ON ta.user_id = ua.id";
 
-if ($role === 'Collector') {
+if ($role === 'Collector' || $role === 'Organizer') {
+    // Both see all tasks — Organizer is super admin
     $sql = $baseSelect . $baseFrom . " WHERE 1=1";
-} elseif ($role === 'Organizer') {
-    $sql = $baseSelect . $baseFrom . " WHERE m.organizer_id = ?";
-    $params[] = $user_id;
-    $types .= "i";
 } else {
     // Employee sees tasks assigned to them
     $sql = $baseSelect . $baseFrom . " WHERE EXISTS (SELECT 1 FROM task_assignments t2 WHERE t2.task_id = t.id AND t2.user_id = ?)";
     $params[] = $user_id;
     $types .= "i";
 }
-
-// Group by task id to allow GROUP_CONCAT
-$sql .= " GROUP BY t.id";
 
 if (!empty($statusFilter)) {
     $sql .= " AND t.status = ?";
@@ -61,13 +55,16 @@ if (!empty($priorityFilter)) {
     $types .= "s";
 }
 if (!empty($searchQuery)) {
-    $sql .= " AND (t.title LIKE ? OR m.title LIKE ? OR u.name LIKE ?)";
+    $sql .= " AND (t.title LIKE ? OR m.title LIKE ? OR ua.name LIKE ?)";
     $searchWildcard = "%" . $searchQuery . "%";
     $params[] = $searchWildcard;
     $params[] = $searchWildcard;
     $params[] = $searchWildcard;
     $types .= "sss";
 }
+
+// GROUP BY must follow all WHERE conditions, not precede them
+$sql .= " GROUP BY t.id";
 
 $sql .= " ORDER BY t.due_date ASC";
 
@@ -115,38 +112,63 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                     <h3 class="fw-bold mb-1" style="color: var(--gov-blue);">Task Board</h3>
                     <p class="text-muted mb-0">Monitor responsibilities and update completion status.</p>
                 </div>
-                <?php if ($role === 'Organizer' || $role === 'Collector'): ?>
-                <a href="create.php" class="btn btn-primary rounded-3 px-3 py-2">
-                    <i class="fas fa-plus-circle me-1"></i> Assign New Task
-                </a>
-                <?php endif; ?>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <div class="meeting-info-badge">
+                        <i class="fas fa-clock text-primary me-1"></i>
+                        <span><strong>Next:</strong> <?php echo htmlspecialchars($nextMeetingText ?? 'No upcoming meetings'); ?></span>
+                    </div>
+                    <div class="meeting-info-badge">
+                        <i class="fas fa-check-circle text-success me-1"></i>
+                        <span><?php echo htmlspecialchars($tasksDueTodayText ?? '0 tasks due today'); ?></span>
+                    </div>
+                    <?php if ($role === 'Organizer'): ?>
+                    <a href="create.php" class="btn btn-primary rounded-3 px-3 py-2">
+                        <i class="fas fa-plus-circle me-1"></i> Assign New Task
+                    </a>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
+<style>
+.meeting-info-badge {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 30px;
+    padding: 0.45rem 1rem;
+    font-size: 0.82rem;
+    color: #334155;
+    font-weight: 500;
+    white-space: nowrap;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+</style>
 
         <!-- Task Stats -->
         <div class="row g-3 mb-4">
             <div class="col-6 col-lg-3 animate-on-scroll">
                 <div class="card stat-card stat-primary border-0 p-3">
                     <div class="stat-label">TOTAL</div>
-                    <div class="stat-value counter-value" data-target="<?php echo $totalTasks; ?>" style="font-size:1.5rem;">0</div>
+                    <div class="stat-value" style="font-size:1.5rem;"><?php echo $totalTasks; ?></div>
                 </div>
             </div>
             <div class="col-6 col-lg-3 animate-on-scroll">
                 <div class="card stat-card stat-warning border-0 p-3">
                     <div class="stat-label">PENDING</div>
-                    <div class="stat-value counter-value" data-target="<?php echo $pendingCount; ?>" style="font-size:1.5rem;">0</div>
+                    <div class="stat-value" style="font-size:1.5rem;"><?php echo $pendingCount; ?></div>
                 </div>
             </div>
             <div class="col-6 col-lg-3 animate-on-scroll">
                 <div class="card stat-card stat-info border-0 p-3">
                     <div class="stat-label">IN PROGRESS</div>
-                    <div class="stat-value counter-value" data-target="<?php echo $inProgressCount; ?>" style="font-size:1.5rem;">0</div>
+                    <div class="stat-value" style="font-size:1.5rem;"><?php echo $inProgressCount; ?></div>
                 </div>
             </div>
             <div class="col-6 col-lg-3 animate-on-scroll">
                 <div class="card stat-card stat-success border-0 p-3">
                     <div class="stat-label">COMPLETED</div>
-                    <div class="stat-value counter-value" data-target="<?php echo $completedCount; ?>" style="font-size:1.5rem;">0</div>
+                    <div class="stat-value" style="font-size:1.5rem;"><?php echo $completedCount; ?></div>
                 </div>
             </div>
         </div>
@@ -184,7 +206,7 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
         </div>
 
         <!-- Tasks Table -->
-        <div class="card p-4 border-0 shadow-sm bg-white animate-on-scroll" id="tasksTableWrapper" data-paginate data-per-page="10">
+        <div class="card p-4 border-0 shadow-sm bg-white" id="tasksTableWrapper" data-paginate data-per-page="10">
             <?php if (empty($tasks)): ?>
                 <div class="empty-state">
                     <i class="bi bi-card-checklist"></i>
@@ -275,30 +297,61 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                                         ?>
                                         <span class="badge <?php echo $sClass; ?>"><?php echo htmlspecialchars($status); ?></span>
                                     </td>
-                                    <td class="text-end">
-                                        <?php if ($role === 'Employee' && $task['assigned_to'] == $user_id): ?>
-                                            <!-- Employee update actions -->
-                                            <form action="../../controllers/UpdateTaskStatusController.php" method="POST" class="d-inline-block">
-                                                <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
-                                                <select name="status" class="form-select form-select-sm d-inline-block rounded-3 w-auto" onchange="this.form.submit()">
-                                                    <option value="Pending" <?php echo $status === 'Pending' ? 'selected' : ''; ?>>Pending</option>
-                                                    <option value="In Progress" <?php echo $status === 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
-                                                    <option value="Completed" <?php echo $status === 'Completed' ? 'selected' : ''; ?>>Completed</option>
-                                                </select>
+                                    <td class="text-end" onclick="event.stopPropagation();">
+                                        <div class="d-flex gap-1 justify-content-end flex-nowrap">
+
+                                            <?php if ($role === 'Organizer'): ?>
+                                            <!-- Edit -->
+                                            <a href="edit.php?id=<?php echo (int)$task['id']; ?>"
+                                               class="btn btn-sm btn-outline-warning rounded-3 px-2"
+                                               title="Edit Task">
+                                                <i class="fas fa-pencil-alt"></i>
+                                            </a>
+                                            <?php endif; ?>
+
+                                            <!-- Update Status dropdown -->
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-primary rounded-3 px-2 dropdown-toggle"
+                                                        type="button"
+                                                        data-bs-toggle="dropdown"
+                                                        aria-expanded="false"
+                                                        title="Update Status">
+                                                    <i class="fas fa-sync-alt"></i>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3" style="min-width:140px;">
+                                                    <?php foreach (['Pending', 'In Progress', 'Completed', 'Cancelled'] as $s): ?>
+                                                    <li>
+                                                        <form action="../../controllers/UpdateTaskStatusController.php" method="POST" class="m-0">
+                                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                                            <input type="hidden" name="task_id"   value="<?php echo (int)$task['id']; ?>">
+                                                            <input type="hidden" name="status"    value="<?php echo $s; ?>">
+                                                            <button type="submit"
+                                                                    class="dropdown-item <?php echo $status === $s ? 'fw-semibold text-primary' : ''; ?>"
+                                                                    style="font-size:0.85rem;">
+                                                                <?php if ($status === $s): ?><i class="fas fa-check me-1 small"></i><?php endif; ?>
+                                                                <?php echo $s; ?>
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                    <?php endforeach; ?>
+                                                </ul>
+                                            </div>
+
+                                            <?php if ($role === 'Organizer'): ?>
+                                            <!-- Delete -->
+                                            <form action="../../controllers/DeleteTaskController.php" method="POST" class="m-0"
+                                                  onsubmit="return confirm('Delete this task? This cannot be undone.')">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                                <input type="hidden" name="task_id"   value="<?php echo (int)$task['id']; ?>">
+                                                <button type="submit"
+                                                        class="btn btn-sm btn-outline-danger rounded-3 px-2"
+                                                        title="Delete Task">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
                                             </form>
-                                        <?php elseif ($role === 'Organizer' || $role === 'Collector'): ?>
-                                            <!-- Admin/Organizer update actions -->
-                                            <form action="../../controllers/UpdateTaskStatusController.php" method="POST" class="d-inline-block">
-                                                <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
-                                                <select name="status" class="form-select form-select-sm d-inline-block rounded-3 w-auto" onchange="this.form.submit()">
-                                                    <option value="Pending" <?php echo $status === 'Pending' ? 'selected' : ''; ?>>Pending</option>
-                                                    <option value="In Progress" <?php echo $status === 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
-                                                    <option value="Completed" <?php echo $status === 'Completed' ? 'selected' : ''; ?>>Completed</option>
-                                                </select>
-                                            </form>
-                                        <?php else: ?>
-                                            <span class="text-muted small">No actions available</span>
-                                        <?php endif; ?>
+                                            <?php endif; ?>
+
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

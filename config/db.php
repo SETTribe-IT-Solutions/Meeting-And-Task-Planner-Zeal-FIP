@@ -17,9 +17,31 @@ if (!defined('DB_NAME')) {
 
 // Calculate project base URL for routing
 if (!defined('APP_URL')) {
-    $docRoot = str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT'] ?? '');
-    $currentDir = str_replace('\\', '/', dirname(__DIR__));
-    define('APP_URL', rtrim(str_replace($docRoot, '', $currentDir), '/'));
+    $docRoot    = rtrim(str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
+    $currentDir = rtrim(str_replace('\\', '/', dirname(__DIR__)), '/');
+    $computed   = rtrim(str_replace($docRoot, '', $currentDir), '/');
+
+    // Fallback for Windows junctions/symlinks where PHP resolves __DIR__ to the
+    // real path (different drive) while DOCUMENT_ROOT stays on the virtual drive.
+    if ($docRoot === '' || preg_match('/^[A-Za-z]:/', ltrim($computed, '/'))) {
+        $scriptVirtual = rtrim(str_replace('\\', '/', $_SERVER['SCRIPT_FILENAME'] ?? ''), '/');
+        $scriptReal    = rtrim(str_replace('\\', '/', realpath($scriptVirtual) ?: $scriptVirtual), '/');
+        $scriptRealDir = dirname($scriptReal);
+
+        // How many directory levels deep is the script within the app root?
+        $relPath = '';
+        if ($currentDir !== '' && stripos($scriptRealDir, $currentDir) === 0) {
+            $relPath = ltrim(substr($scriptRealDir, strlen($currentDir)), '/');
+        }
+        $depth = ($relPath !== '') ? count(explode('/', $relPath)) : 0;
+
+        // Walk up `depth` levels from the virtual script directory
+        $parts    = explode('/', rtrim(dirname($scriptVirtual), '/'));
+        $appParts = array_slice($parts, 0, count($parts) - $depth);
+        $computed = rtrim(str_replace($docRoot, '', implode('/', $appParts)), '/');
+    }
+
+    define('APP_URL', $computed);
 }
 
 // Helper function to execute SQL statements from a file
@@ -192,6 +214,12 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Ensure a CSRF token is always available for authenticated sessions.
+// This covers sessions that existed before CSRF was introduced.
+if (!empty($_SESSION['user_id']) && empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 // Language detection and persistence
 if (isset($_GET['lang'])) {
     $_SESSION['lang'] = ($_GET['lang'] === 'mr') ? 'mr' : 'en';
@@ -226,18 +254,28 @@ function __($key) {
 // Set timezone
 date_default_timezone_set('Asia/Kolkata');
 
-// Helper function for debugging
+// APP_DEBUG flag — set to true only in local development, never on production.
+if (!defined('APP_DEBUG')) {
+    define('APP_DEBUG', false);
+}
+
+// Helper function for debugging (output suppressed unless APP_DEBUG is true)
 function debug($data) {
+    if (!APP_DEBUG) {
+        return;
+    }
     echo "<pre>";
     print_r($data);
     echo "</pre>";
 }
 
-// Helper function for sanitizing input
+// Helper function for sanitizing input.
+// NOTE: htmlspecialchars() is intentionally NOT applied here.
+// Escaping must happen at the output/render layer (use htmlspecialchars() in views).
+// Applying it here causes double-encoding when the value is echoed through a view.
 function sanitizeInput($data) {
     $data = trim($data);
     $data = stripslashes($data);
-    $data = htmlspecialchars($data);
     return $data;
 }
 
