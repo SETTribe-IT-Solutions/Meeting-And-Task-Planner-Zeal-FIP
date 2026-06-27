@@ -103,7 +103,7 @@ function getDBConnection() {
         $conn->set_charset("utf8mb4");
         
         // Check if tables exist
-        $requiredTables = ['departments', 'users', 'meetings', 'tasks', 'attendance', 'meeting_translations'];
+        $requiredTables = ['departments', 'users', 'meetings', 'tasks', 'attendance', 'meeting_translations', 'task_assignments'];
         $tablesExist = true;
         
         $result = $conn->query("SHOW TABLES");
@@ -128,6 +128,8 @@ function getDBConnection() {
         }
 
         ensureDepartmentStructure($conn);
+        ensureAttendanceStructure($conn);
+        ensureTaskAssignmentsTable($conn);
         
         return $conn;
     } catch (Exception $e) {
@@ -192,6 +194,12 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Ensure a CSRF token is always available for authenticated sessions.
+// This covers sessions that existed before CSRF was introduced.
+if (!empty($_SESSION['user_id']) && empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 // Language detection and persistence
 if (isset($_GET['lang'])) {
     $_SESSION['lang'] = ($_GET['lang'] === 'mr') ? 'mr' : 'en';
@@ -226,18 +234,28 @@ function __($key) {
 // Set timezone
 date_default_timezone_set('Asia/Kolkata');
 
-// Helper function for debugging
+// APP_DEBUG flag — set to true only in local development, never on production.
+if (!defined('APP_DEBUG')) {
+    define('APP_DEBUG', false);
+}
+
+// Helper function for debugging (output suppressed unless APP_DEBUG is true)
 function debug($data) {
+    if (!APP_DEBUG) {
+        return;
+    }
     echo "<pre>";
     print_r($data);
     echo "</pre>";
 }
 
-// Helper function for sanitizing input
+// Helper function for sanitizing input.
+// NOTE: htmlspecialchars() is intentionally NOT applied here.
+// Escaping must happen at the output/render layer (use htmlspecialchars() in views).
+// Applying it here causes double-encoding when the value is echoed through a view.
 function sanitizeInput($data) {
     $data = trim($data);
     $data = stripslashes($data);
-    $data = htmlspecialchars($data);
     return $data;
 }
 
@@ -286,5 +304,40 @@ function formatTime12Hour($time) {
         return str_pad($hour, 2, '0', STR_PAD_LEFT) . ':' . $minute . ' ' . $ampm;
     }
     return $time;
+}
+/**
+ * Ensure attendance table has 'Late' status and check_in_time column.
+ * Called during DB initialization to auto-migrate schema.
+ */
+function ensureAttendanceStructure($conn) {
+    // Add 'Late' to status ENUM if not already present
+    $colCheck = $conn->query("SHOW COLUMNS FROM attendance LIKE 'status'");
+    if ($colCheck && $colCheck->num_rows > 0) {
+        $row = $colCheck->fetch_assoc();
+        if (strpos($row['Type'], 'Late') === false) {
+            $conn->query("ALTER TABLE attendance MODIFY COLUMN status ENUM('Present','Absent','Pending','Late') DEFAULT 'Pending'");
+        }
+    }
+
+    // Add check_in_time column if not exists
+    $timeCheck = $conn->query("SHOW COLUMNS FROM attendance LIKE 'check_in_time'");
+    if ($timeCheck && $timeCheck->num_rows === 0) {
+        $conn->query("ALTER TABLE attendance ADD COLUMN check_in_time TIME NULL AFTER status");
+    }
+}
+
+/**
+ * Ensure task_assignments table exists for multi-assignee support.
+ * Called during DB initialization to auto-migrate schema.
+ */
+function ensureTaskAssignmentsTable($conn) {
+    $conn->query("CREATE TABLE IF NOT EXISTS task_assignments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        task_id INT NOT NULL,
+        user_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 ?>

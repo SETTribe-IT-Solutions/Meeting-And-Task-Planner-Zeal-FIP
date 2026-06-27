@@ -1,0 +1,38 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[remote "origin"]
+	url = https://github.com/SETTribe-IT-Solutions/Meeting-And-Task-Planner-Zeal-FIP.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+	vscode-merge-base = origin/main
+[branch "Ankita/push_Samal_maam_data"]
+	vscode-merge-base = origin/main
+	remote = origin
+	merge = refs/heads/Ankita/push_Samal_maam_data
+[branch "shamal/feat/unit_test"]
+	remote = origin
+	merge = refs/heads/shamal/feat/unit_test
+	vscode-merge-base = origin/shamal/feat/unit_test
+[branch "Ankita/push_Samal_maam_data2"]
+	vscode-merge-base = origin/shamal/feat/unit_test
+	remote = origin
+	merge = refs/heads/Ankita/push_Samal_maam_data2
+[branch "Ankita/push_Samal_maam_data2_2"]
+	vscode-merge-base = origin/Ankita/push_Samal_maam_data2
+	remote = origin
+	merge = refs/heads/Ankita/push_Samal_maam_data2_2
+[branch "push_Samal_maam_data2"]
+	vscode-merge-base = origin/Ankita/push_Samal_maam_data2_2
+	remote = origin
+	merge = refs/heads/push_Samal_maam_data2
+[branch "dev"]
+	remote = origin
+	merge = refs/heads/dev
+	vscode-merge-base = origin/dev

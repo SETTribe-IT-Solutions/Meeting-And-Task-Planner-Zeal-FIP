@@ -1,0 +1,24 @@
+# pack-refs with: peeled fully-peeled sorted 
+2d1e58f07e85c6ab160da0136c99baf380b83e04 refs/remotes/origin/Ankita/feat/AddMeetingmodulebtn
+bbdb5b9f1ca53edcb458382ac08b937551a24909 refs/remotes/origin/Ankita/feat/ImprovedUI
+db3e166cac00e165013ef1c3723de7dbb62f895c refs/remotes/origin/Ankita/feat/loginpage
+b15ccd8b060a44ac3f71276d45d631058209b0e8 refs/remotes/origin/Ankita/feat/meeting_module
+256f5748fec8de511d3dede5fc0247b1ea80e9d2 refs/remotes/origin/Ankita/folderstructure
+32a0dcd9546d514ddf3e174758fe6f455262190d refs/remotes/origin/Anuja/feat
+cc0a6f91a1f77b1382f6b72e9e0db337d7cc4f2f refs/remotes/origin/Ashwini/feat/all_done
+32fdeabfaee1d5429abee1ce37842b692dba3e55 refs/remotes/origin/Ashwini/feat/loginpage
+59058a5223b183adb365e25ee14b6ed9ecaee245 refs/remotes/origin/Ashwini/feat/time_update
+cc0a6f91a1f77b1382f6b72e9e0db337d7cc4f2f refs/remotes/origin/Ashwini/feat/workOnActionbtns
+65523aa7c6ec9443cc2a8345be1edb79ae994da4 refs/remotes/origin/anuja-feat-datavalidation
+96558da6482649a57429ac3e9a340032f83bf6fd refs/remotes/origin/anuja/datavalidation
+d3809a5654b352ad157176341c88c2ca927c625c refs/remotes/origin/anuja/feat/module1
+a0fad000f7118259ed7984965dae873c6d6301ba refs/remotes/origin/anuja/feat/registration
+6758282d0c75e859ded534e18f8ca383b404bb4a refs/remotes/origin/anuja/fullApplication
+217448d6c61ae060f89bf1dc16b3304ec0d94a8b refs/remotes/origin/anuja/taskadd
+6febd501a5f486a22c32ae7855102ab32b27e5bd refs/remotes/origin/anuja_garande/feat/module2_1
+dd424cbcd9e94a188b3614449e472bfec2bfe7d5 refs/remotes/origin/dev
+e8d97b32fbfe0965ebcb7373749587ef4f9ce471 refs/remotes/origin/main
+b0ae4f87fde05565585276a8f356f7a6cb864ad9 refs/remotes/origin/shamal/feat/all_module
+c8983e8748779cacdcf03107be78ed7e5f88a872 refs/remotes/origin/shamal/feat/module2.1
+b1b85a765088f6e5af7bc58a8fdad538d305b87c refs/remotes/origin/shamal/feat/unit_test
+f337f662f148b4ba17a2e3ccf9503c41e0dd9642 refs/remotes/origin/shamal/feat/user_creation
