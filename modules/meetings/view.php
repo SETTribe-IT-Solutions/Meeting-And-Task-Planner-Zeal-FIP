@@ -38,18 +38,6 @@ if (!$meeting) {
     exit();
 }
 
-// 2. Fetch agenda translations
-$stmt = $conn->prepare("SELECT language_code, translated_agenda FROM meeting_translations WHERE meeting_id = ?");
-$stmt->bind_param("i", $meetingId);
-$stmt->execute();
-$translations = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-
-$marathiAgenda = '';
-foreach ($translations as $trans) {
-    if ($trans['language_code'] === 'mr') {
-        $marathiAgenda = $trans['translated_agenda'];
-    }
-}
 
 // 3. Fetch attendees
 $stmt = $conn->prepare("SELECT a.id as attendance_id, a.status as att_status, a.remarks as att_remarks, u.id as user_id, u.name as user_name, u.email as user_email, u.department as user_dept 
@@ -134,6 +122,25 @@ $statusBadge = match(strtolower($meeting['status'])) {
                             <i class="fas <?php echo strtolower($meeting['mode']) === 'online' ? 'fa-video' : 'fa-building'; ?>"></i> <?php echo htmlspecialchars($meeting['mode']); ?>
                         </span>
                     </div>
+                    <!-- Meeting Action Buttons -->
+                    <div class="d-flex gap-2 mt-3 flex-wrap">
+                        <a href="attendance.php?id=<?php echo $meetingId; ?>" class="btn btn-sm btn-outline-light rounded-3">
+                            <i class="fas fa-clipboard-list me-1"></i> View Attendance
+                        </a>
+                        <?php if (isOrganizer() && (int)$meeting['organizer_id'] === (int)$_SESSION['user_id']): ?>
+                            <a href="edit.php?id=<?php echo $meetingId; ?>" class="btn btn-sm btn-warning rounded-3 text-dark">
+                                <i class="fas fa-edit me-1"></i> Edit Meeting
+                            </a>
+                            <form action="../../controllers/MeetingController.php" method="POST" class="d-inline-block" onsubmit="return confirm('Are you sure you want to delete this meeting? This will also delete related agenda, attendees, attendance, and linked records. This action cannot be undone.');">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="meeting_id" value="<?php echo $meetingId; ?>">
+                                <button type="submit" class="btn btn-sm btn-danger rounded-3">
+                                    <i class="fas fa-trash-alt me-1"></i> Delete Meeting
+                                </button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </div>
@@ -163,30 +170,16 @@ $statusBadge = match(strtolower($meeting['status'])) {
             </div>
         </div>
 
-        <!-- Agenda Section (Multi-lingual Tabs) -->
+        <!-- Agenda Section -->
         <div class="card border-0 shadow-sm mb-4 bg-white p-4 animate-on-scroll">
-            <h5 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--gov-blue);"><i class="fas fa-file-alt text-warning me-2"></i> Agenda / कार्यसूची</h5>
-            
-            <ul class="nav nav-tabs border-bottom-0 mb-3" id="agendaTab" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active fw-bold border-0 px-3 py-2 rounded-3 me-2" id="english-tab" data-bs-toggle="tab" data-bs-target="#english-agenda" type="button" role="tab" aria-controls="english-agenda" aria-selected="true">English</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link fw-bold border-0 px-3 py-2 rounded-3" id="marathi-tab" data-bs-toggle="tab" data-bs-target="#marathi-agenda" type="button" role="tab" aria-controls="marathi-agenda" aria-selected="false">मराठी (Marathi)</button>
-                </li>
-            </ul>
-            <div class="tab-content bg-light p-3 rounded-3" id="agendaTabContent">
-                <div class="tab-pane fade show active text-dark" id="english-agenda" role="tabpanel" aria-labelledby="english-tab" style="white-space: pre-line;">
-                    <?php echo htmlspecialchars($meeting['agenda']); ?>
-                </div>
-                <div class="tab-pane fade text-dark" id="marathi-agenda" role="tabpanel" aria-labelledby="marathi-tab" style="white-space: pre-line;">
-                    <?php echo !empty($marathiAgenda) ? htmlspecialchars($marathiAgenda) : "<span class='text-muted italic'>मराठी भाषांतर उपलब्ध नाही (Marathi translation not available)</span>"; ?>
-                </div>
+            <h5 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--gov-blue);"><i class="fas fa-file-alt text-warning me-2"></i> Agenda</h5>
+            <div class="bg-light p-3 rounded-3 text-dark" style="white-space: pre-line;">
+                <?php echo htmlspecialchars($meeting['agenda']); ?>
             </div>
         </div>
 
         <!-- Meeting Tasks -->
-        <div class="card border-0 shadow-sm bg-white p-4 animate-on-scroll">
+        <div class="card border-0 shadow-sm bg-white p-4 animate-on-scroll" id="meetingTasksTableWrapper" data-paginate data-per-page="5">
             <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                 <h5 class="fw-bold mb-0" style="color: var(--gov-blue);"><i class="fas fa-tasks text-success me-2"></i> Action Items & Tasks</h5>
                 <?php if (isOrganizer()): ?>
@@ -333,6 +326,7 @@ $statusBadge = match(strtolower($meeting['status'])) {
                                                     <option value="Pending" <?php echo $aStatus === 'Pending' ? 'selected' : ''; ?>>Pending</option>
                                                     <option value="Present" <?php echo $aStatus === 'Present' ? 'selected' : ''; ?>>Present</option>
                                                     <option value="Absent" <?php echo $aStatus === 'Absent' ? 'selected' : ''; ?>>Absent</option>
+                                                    <option value="Late" <?php echo $aStatus === 'Late' ? 'selected' : ''; ?>>Late</option>
                                                 </select>
                                                 <button type="button" class="btn btn-outline-secondary btn-sm p-1 rounded-3" 
                                                         style="font-size: 0.75rem;"

@@ -34,18 +34,19 @@ if ($role === 'Employee') {
 $stmt->execute();
 $countsResult = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-$statusCounts = ['Present' => 0, 'Absent' => 0, 'Pending' => 0];
+$statusCounts = ['Present' => 0, 'Absent' => 0, 'Pending' => 0, 'Late' => 0];
 $total = 0;
 foreach ($countsResult as $row) {
     $statusCounts[$row['status']] = (int)$row['count'];
     $total += (int)$row['count'];
 }
 
-$ratios = ['present' => 0, 'absent' => 0, 'pending' => 0];
+$ratios = ['present' => 0, 'absent' => 0, 'pending' => 0, 'late' => 0];
 if ($total > 0) {
     $ratios['present'] = round(($statusCounts['Present'] / $total) * 100);
     $ratios['absent'] = round(($statusCounts['Absent'] / $total) * 100);
     $ratios['pending'] = round(($statusCounts['Pending'] / $total) * 100);
+    $ratios['late'] = round(($statusCounts['Late'] / $total) * 100);
 }
 
 // 2. Load meetings for dropdown filter
@@ -70,13 +71,13 @@ $params = [];
 $types = "";
 
 if ($role === 'Collector') {
-    $sql = "SELECT a.*, m.title as meeting_title, u.name as employee_name, u.department as employee_dept, u.email as employee_email
+    $sql = "SELECT a.*, a.check_in_time, m.title as meeting_title, u.name as employee_name, u.department as employee_dept, u.email as employee_email
             FROM attendance a
             JOIN meetings m ON a.meeting_id = m.id
             JOIN users u ON a.user_id = u.id
             WHERE 1=1";
 } elseif ($role === 'Organizer') {
-    $sql = "SELECT a.*, m.title as meeting_title, u.name as employee_name, u.department as employee_dept, u.email as employee_email
+    $sql = "SELECT a.*, a.check_in_time, m.title as meeting_title, u.name as employee_name, u.department as employee_dept, u.email as employee_email
             FROM attendance a
             JOIN meetings m ON a.meeting_id = m.id
             JOIN users u ON a.user_id = u.id
@@ -84,7 +85,7 @@ if ($role === 'Collector') {
     $params[] = $user_id;
     $types .= "i";
 } else {
-    $sql = "SELECT a.*, m.title as meeting_title, u.name as employee_name, u.department as employee_dept, u.email as employee_email
+    $sql = "SELECT a.*, a.check_in_time, m.title as meeting_title, u.name as employee_name, u.department as employee_dept, u.email as employee_email
             FROM attendance a
             JOIN meetings m ON a.meeting_id = m.id
             JOIN users u ON a.user_id = u.id
@@ -141,9 +142,6 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                     <h3 class="fw-bold mb-1" style="color: var(--gov-blue);">Attendance Portal</h3>
                     <p class="text-muted mb-0">Track and log meeting participation across administrative wings.</p>
                 </div>
-                <span class="badge bg-success text-white px-3 py-2" style="animation: pulse 2s ease-in-out infinite;">
-                    <i class="fas fa-signal me-1"></i> Live Sync
-                </span>
             </div>
         </div>
 
@@ -188,7 +186,6 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                     <div class="progress mt-3" style="height: 6px; background: rgba(255,255,255,0.2);">
                         <div class="progress-bar bg-white" style="width: <?php echo $ratios['absent']; ?>%"></div>
                     </div>
-                    <div class="stat-trend mt-2"><i class="fas fa-user-slash me-1"></i> <?php echo $statusCounts['Absent']; ?> absent</div>
                 </div>
             </div>
         </div>
@@ -218,6 +215,7 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                         <option value="Present" <?php echo $statusFilter === 'Present' ? 'selected' : ''; ?>>Present</option>
                         <option value="Pending" <?php echo $statusFilter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
                         <option value="Absent" <?php echo $statusFilter === 'Absent' ? 'selected' : ''; ?>>Absent</option>
+                        <option value="Late" <?php echo $statusFilter === 'Late' ? 'selected' : ''; ?>>Late</option>
                     </select>
                 </div>
                 <div class="col-md-2 d-flex gap-2">
@@ -249,6 +247,7 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                 <th>Employee / Wing</th>
                                 <th>Meeting Room</th>
                                 <th>Status</th>
+                                <th>Check-in Time</th>
                                 <th>Remarks & Feedback</th>
                                 <th class="text-end">Actions</th>
                             </tr>
@@ -271,11 +270,15 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                         $badgeClass = match($status) {
                                             'Present' => 'badge-status-completed',
                                             'Absent' => 'badge-status-cancelled',
+                                            'Late' => 'bg-warning text-dark',
                                             'Pending' => 'badge-status-scheduled',
                                             default => 'bg-secondary'
                                         };
                                         ?>
                                         <span class="badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($status); ?></span>
+                                    </td>
+                                    <td>
+                                        <span class="text-muted small"><?php echo !empty($record['check_in_time']) ? formatTime12Hour($record['check_in_time']) : '—'; ?></span>
                                     </td>
                                     <td>
                                         <span class="text-muted small"><?php echo !empty($record['remarks']) ? htmlspecialchars($record['remarks']) : '—'; ?></span>
@@ -294,6 +297,7 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                                     <option value="Pending" <?php echo $status === 'Pending' ? 'selected' : ''; ?>>Pending</option>
                                                     <option value="Present" <?php echo $status === 'Present' ? 'selected' : ''; ?>>Present</option>
                                                     <option value="Absent" <?php echo $status === 'Absent' ? 'selected' : ''; ?>>Absent</option>
+                                                    <option value="Late" <?php echo $status === 'Late' ? 'selected' : ''; ?>>Late</option>
                                                 </select>
                                                 <button type="button" class="btn btn-outline-secondary btn-sm rounded-3" 
                                                         title="Edit remarks" 

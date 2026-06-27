@@ -11,6 +11,7 @@ if (!isset($_SESSION['role'])) {
 require_once '../../config/db.php';
 include_once '../../includes/header.php';
 
+$currentUserId = (int) ($_SESSION['user_id'] ?? 0);
 $conn = getDBConnection();
 $result = $conn->query(
     "SELECT m.id, m.title, m.meeting_date, m.meeting_time, m.location, m.mode, m.department, m.status, u.id AS organizer_id, u.name AS organizer_name
@@ -35,7 +36,6 @@ $cancelledCount = count(array_filter($meetings, fn($m) => strtolower($m['status'
 $userRes = $conn->query('SELECT id, name, email FROM users WHERE isDeleted = "No" ORDER BY name');
 $users = $userRes ? $userRes->fetch_all(MYSQLI_ASSOC) : [];
 $today = date('Y-m-d');
-$canManageTasks = isOrganizer();
 ?>
 <div class="row">
     <div class="col-12">
@@ -141,12 +141,21 @@ $canManageTasks = isOrganizer();
                                 </td>
                                 <td><span class="fw-medium"><?php echo htmlspecialchars($meeting['organizer_name']); ?></span></td>
                                 <td class="text-end">
-                                    <?php if ($canManageTasks): ?>
-                                    <a href="../tasks/create.php?meeting_id=<?php echo (int)$meeting['id']; ?>" class="btn btn-sm btn-outline-primary open-add-task-modal" data-meeting-id="<?php echo (int)$meeting['id']; ?>" data-meeting-title="<?php echo htmlspecialchars($meeting['title']); ?>" data-meeting-date="<?php echo htmlspecialchars($meeting['meeting_date']); ?>" data-meeting-department="<?php echo htmlspecialchars($meeting['department']); ?>" data-organizer-id="<?php echo (int)$meeting['organizer_id']; ?>" data-organizer-name="<?php echo htmlspecialchars($meeting['organizer_name']); ?>" onclick="event.stopPropagation();">
-                                        <i class="fas fa-plus-circle me-1"></i> Add Task
+                                    <a href="view.php?id=<?php echo $meeting['id']; ?>" class="btn btn-sm btn-outline-secondary me-1" onclick="event.stopPropagation();">
+                                        <i class="fas fa-eye"></i>
                                     </a>
-                                    <?php else: ?>
-                                        <span class="text-muted small">View only</span>
+                                    <?php if ($meeting['organizer_id'] === $currentUserId): ?>
+                                        <a href="edit.php?id=<?php echo $meeting['id']; ?>" class="btn btn-sm btn-outline-primary me-1" onclick="event.stopPropagation();">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <form action="../../controllers/MeetingController.php" method="POST" class="d-inline-block" onsubmit="event.stopPropagation(); return confirm('Are you sure you want to delete this meeting? This will also delete related agenda, attendees, attendance, and linked records. This action cannot be undone.');">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                            <input type="hidden" name="action" value="delete">
+                                            <input type="hidden" name="meeting_id" value="<?php echo $meeting['id']; ?>">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </form>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -160,13 +169,12 @@ $canManageTasks = isOrganizer();
 
 <?php include_once '../../includes/footer.php'; ?>
 
-<?php if ($canManageTasks): ?>
 <!-- Add Task Modal -->
 <div class="modal fade" id="addTaskModal" tabindex="-1" aria-labelledby="addTaskModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="addTaskModalLabel"><i class="fas fa-tasks me-2 text-warning"></i> Assign New Task</h5>
+                <h5 class="modal-title" id="addTaskModalLabel"><i class="fas fa-tasks me-2 text-warning"></i> Assign Task</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="../../controllers/TaskController.php" method="POST">
@@ -232,4 +240,3 @@ $canManageTasks = isOrganizer();
         </div>
     </div>
 </div>
-<?php endif; ?>

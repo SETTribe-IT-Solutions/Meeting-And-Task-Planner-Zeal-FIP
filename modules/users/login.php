@@ -1042,6 +1042,31 @@ unset($_SESSION['error'], $_SESSION['success']);
         <div class="green"></div>
     </div>
 
+    <!-- ══════ ACCESSIBILITY BAR ══════ -->
+    <div class="accessibility-bar">
+        <div class="access-inner">
+            <div class="access-left">
+                <i class="bi bi-clock"></i> Last Updated: <?php echo date('d M Y, h:i A'); ?>
+            </div>
+            <div class="access-right">
+                <span>Screen Reader Access</span>
+                <span>|</span>
+                <span>Text Size:</span>
+                <button class="font-btn" id="fontSmall" title="Decrease Font Size">A-</button>
+                <button class="font-btn active" id="fontDefault" title="Default Font Size">A</button>
+                <button class="font-btn" id="fontLarge" title="Increase Font Size">A+</button>
+                <span>|</span>
+                <span>Color:</span>
+                <button class="theme-btn t-default" title="Default Theme" id="themeDefault"></button>
+                <button class="theme-btn t-dark" title="Dark Theme" id="themeDark"></button>
+                <button class="theme-btn t-contrast" title="High Contrast" id="themeContrast"></button>
+                <div class="lang-switch">
+                    <button class="lang-btn active" id="langEn">ENG</button>
+                    <button class="lang-btn" id="langMr">मराठी</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- ══════ MAIN HEADER ══════ -->
     <header class="gov-header">
@@ -1069,13 +1094,22 @@ unset($_SESSION['error'], $_SESSION['success']);
             <a href="#main-content" class="nav-link-item active"><i class="bi bi-house-door"></i> Home</a>
             <a href="#about-district" class="nav-link-item"><i class="bi bi-info-circle"></i> About District</a>
             <a href="#loginCard" class="nav-link-item"><i class="bi bi-building"></i> Administration</a>
-            <a href="#notices" class="nav-link-item"><i class="bi bi-megaphone"></i> Notices</a>
+            <a href="#latest-notices" class="nav-link-item"><i class="bi bi-megaphone"></i> Notices</a>
             <a href="#demo-reports" class="nav-link-item"><i class="bi bi-file-earmark-text"></i> Reports</a>
             <a href="#contact-help" class="nav-link-item"><i class="bi bi-telephone"></i> Contact</a>
-            <a href="#help-links" class="nav-link-item"><i class="bi bi-question-circle"></i> Help</a>
+            <a href="#contact-help" class="nav-link-item"><i class="bi bi-question-circle"></i> Help</a>
         </div>
     </nav>
 
+    <!-- ══════ NEWS TICKER ══════ -->
+    <div class="news-ticker" id="latest-notices">
+        <div class="ticker-inner">
+            <span class="ticker-label"><i class="bi bi-megaphone-fill"></i> Latest</span>
+            <marquee class="ticker-text" behavior="scroll" direction="left" onmouseover="this.stop();" onmouseout="this.start();">
+                📢 Weekly administrative review meetings scheduled every Friday at Collector Office, Latur. &nbsp;|&nbsp; 📋 All department heads must confirm attendance for District Planning Meeting – June 2026. &nbsp;|&nbsp; 🔔 New circular: Updated HR policy guidelines available under Reports section. &nbsp;|&nbsp; ✅ Digital attendance now mandatory for all government meetings.
+            </marquee>
+        </div>
+    </div>
 
     <!-- ══════ MAIN CONTENT ══════ -->
     <div class="main-content" id="main-content">
@@ -1181,14 +1215,6 @@ unset($_SESSION['error'], $_SESSION['success']);
                 </div>
             </div>
 
-            <div class="demo-box" id="notices">
-                <h6><i class="bi bi-megaphone-fill"></i> Notices</h6>
-                <div class="demo-row">
-                    <span class="role-tag">Notice</span>
-                    <span>Official meeting and task updates are available after login.</span>
-                </div>
-            </div>
-
             <!-- Demo Credentials -->
             <div class="demo-box" id="demo-reports">
                 <h6><i class="bi bi-info-circle-fill"></i> Demo Login Credentials</h6>
@@ -1231,7 +1257,7 @@ unset($_SESSION['error'], $_SESSION['success']);
                         <li><a href="#">Sitemap</a></li>
                     </ul>
                 </div>
-                <div class="footer-col" id="help-links">
+                <div class="footer-col">
                     <h6>Help</h6>
                     <ul>
                         <li><a href="#">User Manual</a></li>

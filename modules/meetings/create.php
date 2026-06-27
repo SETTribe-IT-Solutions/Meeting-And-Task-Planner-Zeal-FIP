@@ -31,6 +31,8 @@ include_once '../../includes/header.php';
                 <?php endif; ?>
 
                 <form action="../../controllers/MeetingController.php" method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                    <input type="hidden" name="action" value="create">
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">Meeting Title</label>
@@ -167,6 +169,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Validate form before submission
     form.addEventListener('submit', function(e) {
+        updateTimeHiddenInput();
         const hour = hourInput.value;
         const minute = minuteInput.value;
         const ampm = ampmSelect.value;
