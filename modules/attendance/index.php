@@ -32,7 +32,7 @@ if ($role === 'Employee') {
 $stmt->execute();
 $countsResult = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-$statusCounts = ['Present' => 0, 'Present with Late' => 0, 'Absent' => 0, 'Not Updated' => 0];
+$statusCounts = ['Present' => 0, 'Absent' => 0, 'Pending' => 0, 'Late' => 0];
 $total = 0;
 foreach ($countsResult as $row) {
     if (isset($statusCounts[$row['status']])) {
@@ -41,12 +41,12 @@ foreach ($countsResult as $row) {
     $total += (int)$row['count'];
 }
 
-$ratios = ['present' => 0, 'present_late' => 0, 'absent' => 0, 'not_updated' => 0];
+$ratios = ['present' => 0, 'absent' => 0, 'pending' => 0, 'late' => 0];
 if ($total > 0) {
-    $ratios['present']      = round(($statusCounts['Present'] / $total) * 100);
-    $ratios['present_late'] = round(($statusCounts['Present with Late'] / $total) * 100);
-    $ratios['absent']       = round(($statusCounts['Absent'] / $total) * 100);
-    $ratios['not_updated']  = round(($statusCounts['Not Updated'] / $total) * 100);
+    $ratios['present'] = round(($statusCounts['Present'] / $total) * 100);
+    $ratios['absent'] = round(($statusCounts['Absent'] / $total) * 100);
+    $ratios['pending'] = round(($statusCounts['Pending'] / $total) * 100);
+    $ratios['late'] = round(($statusCounts['Late'] / $total) * 100);
 }
 
 // 2. Load meetings for dropdown filter
@@ -66,15 +66,22 @@ $sql = "";
 $params = [];
 $types = "";
 
-if ($role === 'Collector' || $role === 'Organizer') {
-    // Both see all attendance — Organizer is super admin
-    $sql = "SELECT a.*, m.title as meeting_title, u.name as employee_name, u.department as employee_dept, u.email as employee_email
+if ($role === 'Collector') {
+    $sql = "SELECT a.*, a.check_in_time, m.title as meeting_title, u.name as employee_name, u.department as employee_dept, u.email as employee_email
             FROM attendance a
             JOIN meetings m ON a.meeting_id = m.id
             JOIN users u ON a.user_id = u.id
             WHERE 1=1";
+} elseif ($role === 'Organizer') {
+    $sql = "SELECT a.*, a.check_in_time, m.title as meeting_title, u.name as employee_name, u.department as employee_dept, u.email as employee_email
+            FROM attendance a
+            JOIN meetings m ON a.meeting_id = m.id
+            JOIN users u ON a.user_id = u.id
+            WHERE m.organizer_id = ?";
+    $params[] = $user_id;
+    $types .= "i";
 } else {
-    $sql = "SELECT a.*, m.title as meeting_title, u.name as employee_name, u.department as employee_dept, u.email as employee_email
+    $sql = "SELECT a.*, a.check_in_time, m.title as meeting_title, u.name as employee_name, u.department as employee_dept, u.email as employee_email
             FROM attendance a
             JOIN meetings m ON a.meeting_id = m.id
             JOIN users u ON a.user_id = u.id
@@ -131,9 +138,6 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                     <h3 class="fw-bold mb-1" style="color: var(--gov-blue);">Attendance Portal</h3>
                     <p class="text-muted mb-0">Track and log meeting participation across administrative wings.</p>
                 </div>
-                <span class="badge bg-success text-white px-3 py-2" style="animation: pulse 2s ease-in-out infinite;">
-                    <i class="fas fa-signal me-1"></i> Live Sync
-                </span>
             </div>
         </div>
 
@@ -169,18 +173,6 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                     <div class="progress mt-3" style="height: 6px; background: rgba(255,255,255,0.2);">
                         <div class="progress-bar bg-white" style="width: <?php echo $ratios['absent']; ?>%"></div>
                     </div>
-                    <div class="stat-trend mt-2"><i class="fas fa-percent me-1"></i> <?php echo $ratios['absent']; ?>% of total</div>
-                </div>
-            </div>
-            <div class="col-md-3 animate-on-scroll">
-                <div class="card stat-card border-0 p-4" style="background: linear-gradient(135deg, #64748b, #475569);">
-                    <i class="fas fa-question-circle stat-icon"></i>
-                    <div class="stat-label mb-1">NOT UPDATED</div>
-                    <div class="stat-value counter-value" data-target="<?php echo $statusCounts['Not Updated']; ?>" style="font-size:2rem;">0</div>
-                    <div class="progress mt-3" style="height: 6px; background: rgba(255,255,255,0.2);">
-                        <div class="progress-bar bg-white" style="width: <?php echo $ratios['not_updated']; ?>%"></div>
-                    </div>
-                    <div class="stat-trend mt-2"><i class="fas fa-percent me-1"></i> <?php echo $ratios['not_updated']; ?>% of total</div>
                 </div>
             </div>
         </div>
@@ -207,10 +199,10 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                     <label class="form-label">Status</label>
                     <select name="status" class="form-select rounded-3">
                         <option value="">All Statuses</option>
-                        <option value="Present"           <?php echo $statusFilter === 'Present'           ? 'selected' : ''; ?>>Present</option>
-                        <option value="Present with Late" <?php echo $statusFilter === 'Present with Late' ? 'selected' : ''; ?>>Present with Late</option>
-                        <option value="Absent"            <?php echo $statusFilter === 'Absent'            ? 'selected' : ''; ?>>Absent</option>
-                        <option value="Not Updated"       <?php echo $statusFilter === 'Not Updated'       ? 'selected' : ''; ?>>Not Updated</option>
+                        <option value="Present" <?php echo $statusFilter === 'Present' ? 'selected' : ''; ?>>Present</option>
+                        <option value="Pending" <?php echo $statusFilter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                        <option value="Absent" <?php echo $statusFilter === 'Absent' ? 'selected' : ''; ?>>Absent</option>
+                        <option value="Late" <?php echo $statusFilter === 'Late' ? 'selected' : ''; ?>>Late</option>
                     </select>
                 </div>
                 <div class="col-md-2 d-flex gap-2">
@@ -242,7 +234,7 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                 <th>Employee / Wing</th>
                                 <th>Meeting Room</th>
                                 <th>Status</th>
-                                <th>Arrival Time</th>
+                                <th>Check-in Time</th>
                                 <th>Remarks & Feedback</th>
                                 <th class="text-end">Actions</th>
                             </tr>
@@ -262,11 +254,12 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                     <td>
                                         <?php
                                         $status = $record['status'];
-                                        $statusConf = match($status) {
-                                            'Present'           => ['icon' => 'fa-check-circle',    'color' => 'success',   'badge' => 'badge-status-completed'],
-                                            'Present with Late' => ['icon' => 'fa-clock',           'color' => 'warning',   'badge' => 'badge-status-ongoing'],
-                                            'Absent'            => ['icon' => 'fa-times-circle',    'color' => 'danger',    'badge' => 'badge-status-cancelled'],
-                                            default             => ['icon' => 'fa-question-circle', 'color' => 'secondary', 'badge' => 'bg-secondary'],
+                                        $badgeClass = match($status) {
+                                            'Present' => 'badge-status-completed',
+                                            'Absent' => 'badge-status-cancelled',
+                                            'Late' => 'bg-warning text-dark',
+                                            'Pending' => 'badge-status-scheduled',
+                                            default => 'bg-secondary'
                                         };
                                         $attStatuses = [
                                             'Present'           => ['icon' => 'fa-check-circle',    'cls' => 'text-success',   'label' => 'Present'],
@@ -287,56 +280,30 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                         <?php endif; ?>
                                     </td>
                                     <td>
+                                        <span class="text-muted small"><?php echo !empty($record['check_in_time']) ? formatTime12Hour($record['check_in_time']) : '—'; ?></span>
+                                    </td>
+                                    <td>
                                         <span class="text-muted small"><?php echo !empty($record['remarks']) ? htmlspecialchars($record['remarks']) : '—'; ?></span>
                                     </td>
                                     <td class="text-end">
-                                        <div class="d-flex gap-1 justify-content-end align-items-center">
-                                        <?php if ($role === 'Organizer' || $role === 'Employee'): ?>
-                                            <!-- Status dropdown icon button -->
-                                            <div class="dropdown">
-                                                <button class="btn btn-sm btn-outline-<?php echo $statusConf['color']; ?> rounded-3 px-2 dropdown-toggle"
-                                                        type="button" data-bs-toggle="dropdown" aria-expanded="false"
-                                                        title="Update status — current: <?php echo htmlspecialchars($status); ?>">
-                                                    <i class="fas <?php echo $statusConf['icon']; ?>"></i>
-                                                </button>
-                                                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3" style="min-width:200px;">
-                                                    <?php foreach ($attStatuses as $sv => $sm): ?>
-                                                    <li>
-                                                        <form action="../../controllers/AttendanceController.php" method="POST" class="m-0">
-                                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
-                                                            <input type="hidden" name="action" value="update">
-                                                            <input type="hidden" name="attendance_id" value="<?php echo $record['id']; ?>">
-                                                            <input type="hidden" name="meeting_id" value="<?php echo $record['meeting_id']; ?>">
-                                                            <input type="hidden" name="status" value="<?php echo htmlspecialchars($sv); ?>">
-                                                            <input type="hidden" name="remarks" value="<?php echo htmlspecialchars($record['remarks'] ?? ''); ?>">
-                                                            <input type="hidden" name="redirect" value="../modules/attendance/index.php?<?php echo htmlspecialchars($_SERVER['QUERY_STRING'] ?? ''); ?>">
-                                                            <button type="submit" class="dropdown-item d-flex align-items-center gap-2 px-3 py-2">
-                                                                <i class="fas <?php echo $sm['icon']; ?> <?php echo $sm['cls']; ?>"></i>
-                                                                <span class="flex-fill"><?php echo $sm['label']; ?></span>
-                                                                <?php if ($status === $sv): ?>
-                                                                    <i class="fas fa-check ms-auto text-primary" style="font-size:0.72rem;"></i>
-                                                                <?php endif; ?>
-                                                            </button>
-                                                        </form>
-                                                    </li>
-                                                    <?php endforeach; ?>
-                                                </ul>
-                                            </div>
-                                            <!-- Remarks icon button -->
-                                            <form action="../../controllers/AttendanceController.php" method="POST" class="m-0"
-                                                  id="rmk_<?php echo $record['id']; ?>">
-                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
-                                                <input type="hidden" name="action" value="update">
-                                                <input type="hidden" name="attendance_id" value="<?php echo $record['id']; ?>">
-                                                <input type="hidden" name="meeting_id" value="<?php echo $record['meeting_id']; ?>">
-                                                <input type="hidden" name="status" value="<?php echo htmlspecialchars($status); ?>">
-                                                <input type="hidden" name="remarks" id="rmk_val_<?php echo $record['id']; ?>"
-                                                       value="<?php echo htmlspecialchars($record['remarks'] ?? ''); ?>">
-                                                <input type="hidden" name="redirect" value="../modules/attendance/index.php?<?php echo htmlspecialchars($_SERVER['QUERY_STRING'] ?? ''); ?>">
-                                                <button type="button"
-                                                        class="btn btn-sm btn-outline-secondary rounded-3 px-2"
-                                                        title="Add / Edit Remarks"
-                                                        onclick="promptRemarks('<?php echo $record['id']; ?>', <?php echo htmlspecialchars(json_encode($record['remarks'] ?? ''), ENT_QUOTES); ?>)">
+                                        <!-- Inline status editing form -->
+                                        <form action="../../controllers/AttendanceController.php" method="POST" class="d-inline-block">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                            <input type="hidden" name="action" value="update">
+                                            <input type="hidden" name="attendance_id" value="<?php echo $record['id']; ?>">
+                                            <input type="hidden" name="meeting_id" value="<?php echo $record['meeting_id']; ?>">
+                                            <input type="hidden" name="redirect" value="../modules/attendance/index.php?<?php echo htmlspecialchars($_SERVER['QUERY_STRING'] ?? ''); ?>">
+                                            
+                                            <div class="d-flex align-items-center gap-1 justify-content-end">
+                                                <select name="status" class="form-select form-select-sm rounded-3 w-auto" style="min-width: 110px;" onchange="this.form.submit()">
+                                                    <option value="Pending" <?php echo $status === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                                                    <option value="Present" <?php echo $status === 'Present' ? 'selected' : ''; ?>>Present</option>
+                                                    <option value="Absent" <?php echo $status === 'Absent' ? 'selected' : ''; ?>>Absent</option>
+                                                    <option value="Late" <?php echo $status === 'Late' ? 'selected' : ''; ?>>Late</option>
+                                                </select>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm rounded-3" 
+                                                        title="Edit remarks" 
+                                                        onclick="promptRemarks(this, '<?php echo htmlspecialchars(addslashes($record['remarks'] ?? '')); ?>')">
                                                     <i class="fas fa-comment"></i>
                                                 </button>
                                             </form>

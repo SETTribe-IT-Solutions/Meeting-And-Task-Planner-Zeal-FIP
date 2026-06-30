@@ -125,7 +125,7 @@ function getDBConnection() {
         $conn->set_charset("utf8mb4");
         
         // Check if tables exist
-        $requiredTables = ['departments', 'users', 'meetings', 'tasks', 'attendance', 'meeting_translations'];
+        $requiredTables = ['departments', 'users', 'meetings', 'tasks', 'attendance', 'meeting_translations', 'task_assignments'];
         $tablesExist = true;
         
         $result = $conn->query("SHOW TABLES");
@@ -150,7 +150,8 @@ function getDBConnection() {
         }
 
         ensureDepartmentStructure($conn);
-        ensurePhase2ASchema($conn);
+        ensureAttendanceStructure($conn);
+        ensureTaskAssignmentsTable($conn);
         
         return $conn;
     } catch (Exception $e) {
@@ -255,56 +256,6 @@ function __($key) {
 // Set timezone
 date_default_timezone_set('Asia/Kolkata');
 
-function ensurePhase2ASchema($conn) {
-    // attendance.arrival_time (Phase 2A Feature 3)
-    $r = $conn->query("SHOW COLUMNS FROM attendance LIKE 'arrival_time'");
-    if ($r && $r->num_rows === 0) {
-        $conn->query("ALTER TABLE attendance ADD COLUMN arrival_time TIME NULL AFTER status");
-    }
-
-    // tasks.progress_notes (Phase 2A Feature 4)
-    $r = $conn->query("SHOW COLUMNS FROM tasks LIKE 'progress_notes'");
-    if ($r && $r->num_rows === 0) {
-        $conn->query("ALTER TABLE tasks ADD COLUMN progress_notes TEXT NULL AFTER notes");
-    }
-
-    // tasks.updated_at (Phase 2A Feature 5)
-    $r = $conn->query("SHOW COLUMNS FROM tasks LIKE 'updated_at'");
-    if ($r && $r->num_rows === 0) {
-        $conn->query("ALTER TABLE tasks ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at");
-    }
-
-    // meeting_attachments table (Phase 2A Feature 1)
-    $conn->query("CREATE TABLE IF NOT EXISTS meeting_attachments (
-        id            INT AUTO_INCREMENT PRIMARY KEY,
-        meeting_id    INT          NOT NULL,
-        uploaded_by   INT          NOT NULL,
-        original_name VARCHAR(255) NOT NULL,
-        stored_name   VARCHAR(255) NOT NULL,
-        file_size     INT          NOT NULL,
-        mime_type     VARCHAR(100) NOT NULL,
-        uploaded_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (meeting_id)  REFERENCES meetings(id) ON DELETE CASCADE,
-        FOREIGN KEY (uploaded_by) REFERENCES users(id),
-        INDEX idx_ma_meeting_id (meeting_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-    // task_attachments table (Phase 2A Feature 2)
-    $conn->query("CREATE TABLE IF NOT EXISTS task_attachments (
-        id            INT AUTO_INCREMENT PRIMARY KEY,
-        task_id       INT          NOT NULL,
-        uploaded_by   INT          NOT NULL,
-        original_name VARCHAR(255) NOT NULL,
-        stored_name   VARCHAR(255) NOT NULL,
-        file_size     INT          NOT NULL,
-        mime_type     VARCHAR(100) NOT NULL,
-        uploaded_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (task_id)     REFERENCES tasks(id) ON DELETE CASCADE,
-        FOREIGN KEY (uploaded_by) REFERENCES users(id),
-        INDEX idx_tka_task_id (task_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-}
-
 // APP_DEBUG flag — set to true only in local development, never on production.
 if (!defined('APP_DEBUG')) {
     define('APP_DEBUG', false);
@@ -375,5 +326,40 @@ function formatTime12Hour($time) {
         return str_pad($hour, 2, '0', STR_PAD_LEFT) . ':' . $minute . ' ' . $ampm;
     }
     return $time;
+}
+/**
+ * Ensure attendance table has 'Late' status and check_in_time column.
+ * Called during DB initialization to auto-migrate schema.
+ */
+function ensureAttendanceStructure($conn) {
+    // Add 'Late' to status ENUM if not already present
+    $colCheck = $conn->query("SHOW COLUMNS FROM attendance LIKE 'status'");
+    if ($colCheck && $colCheck->num_rows > 0) {
+        $row = $colCheck->fetch_assoc();
+        if (strpos($row['Type'], 'Late') === false) {
+            $conn->query("ALTER TABLE attendance MODIFY COLUMN status ENUM('Present','Absent','Pending','Late') DEFAULT 'Pending'");
+        }
+    }
+
+    // Add check_in_time column if not exists
+    $timeCheck = $conn->query("SHOW COLUMNS FROM attendance LIKE 'check_in_time'");
+    if ($timeCheck && $timeCheck->num_rows === 0) {
+        $conn->query("ALTER TABLE attendance ADD COLUMN check_in_time TIME NULL AFTER status");
+    }
+}
+
+/**
+ * Ensure task_assignments table exists for multi-assignee support.
+ * Called during DB initialization to auto-migrate schema.
+ */
+function ensureTaskAssignmentsTable($conn) {
+    $conn->query("CREATE TABLE IF NOT EXISTS task_assignments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        task_id INT NOT NULL,
+        user_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 ?>

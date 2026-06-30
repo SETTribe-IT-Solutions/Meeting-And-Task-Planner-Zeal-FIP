@@ -32,42 +32,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $attendanceId = isset($_POST['attendance_id']) ? (int)$_POST['attendance_id'] : 0;
 
         // Whitelist: only accept known attendance status values
-        $ALLOWED_ATT_STATUSES = ['Present', 'Present with Late', 'Absent', 'Not Updated'];
-        $rawStatus = isset($_POST['status']) ? trim($_POST['status']) : 'Not Updated';
-        $status    = in_array($rawStatus, $ALLOWED_ATT_STATUSES, true) ? $rawStatus : 'Not Updated';
+        $ALLOWED_ATT_STATUSES = ['Present', 'Absent', 'Pending', 'Late'];
+        $rawStatus = isset($_POST['status']) ? trim($_POST['status']) : 'Pending';
+        $status    = in_array($rawStatus, $ALLOWED_ATT_STATUSES, true) ? $rawStatus : 'Pending';
 
         $remarks = isset($_POST['remarks']) ? trim(stripslashes($_POST['remarks'])) : '';
 
-        // --- Arrival Time logic ---
-        // Fetch existing arrival_time so we can preserve it if already set
-        $existRow = $conn->prepare("SELECT arrival_time FROM attendance WHERE id = ?");
-        $existRow->bind_param("i", $attendanceId);
-        $existRow->execute();
-        $existData     = $existRow->get_result()->fetch_assoc();
-        $existingArrival = $existData ? $existData['arrival_time'] : null;
-
-        $arrivalTime = null;
-        if (in_array($status, ['Present', 'Present with Late'], true)) {
-            // Organizer-supplied override (e.g. from "Edit Arrival Time" button)
-            $postedTime = trim($_POST['arrival_time'] ?? '');
-            if ($postedTime !== '' && preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $postedTime)) {
-                $arrivalTime = strlen($postedTime) === 5 ? $postedTime . ':00' : $postedTime;
-            } elseif ($existingArrival !== null) {
-                $arrivalTime = $existingArrival; // preserve previously recorded time
-            } else {
-                $arrivalTime = date('H:i:s'); // auto-fill with current server time
-            }
+        // Auto-record check_in_time when marking Present or Late
+        $checkInTime = null;
+        if (in_array($status, ['Present', 'Late'])) {
+            $checkInTime = date('H:i:s');
         }
-        // Absent / Not Updated: arrival_time stays NULL (already $arrivalTime = null)
 
         if ($role === 'Employee') {
             // Employees can only update their own status
-            $stmt = $conn->prepare("UPDATE attendance SET status = ?, remarks = ?, arrival_time = ? WHERE id = ? AND user_id = ?");
-            $stmt->bind_param("sssii", $status, $remarks, $arrivalTime, $attendanceId, $user_id);
+            $stmt = $conn->prepare("UPDATE attendance SET status = ?, remarks = ?, check_in_time = COALESCE(?, check_in_time) WHERE id = ? AND user_id = ?");
+            $stmt->bind_param("sssii", $status, $remarks, $checkInTime, $attendanceId, $user_id);
         } else {
             // Organizers and Collectors can update anyone's attendance
-            $stmt = $conn->prepare("UPDATE attendance SET status = ?, remarks = ?, arrival_time = ? WHERE id = ?");
-            $stmt->bind_param("sssi", $status, $remarks, $arrivalTime, $attendanceId);
+            $stmt = $conn->prepare("UPDATE attendance SET status = ?, remarks = ?, check_in_time = COALESCE(?, check_in_time) WHERE id = ?");
+            $stmt->bind_param("sssi", $status, $remarks, $checkInTime, $attendanceId);
         }
 
         if ($stmt->execute()) {

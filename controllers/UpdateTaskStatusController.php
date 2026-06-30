@@ -78,20 +78,9 @@ try {
         }
     }
 
-    // Progress notes (max 1000 chars, optional)
-    $progressNotes = trim($_POST['progress_notes'] ?? '');
-    if (mb_strlen($progressNotes) > 1000) {
-        $progressNotes = mb_substr($progressNotes, 0, 1000);
-    }
-
-    // Perform the update — updated_at auto-refreshes via ON UPDATE CURRENT_TIMESTAMP
-    if ($progressNotes !== '') {
-        $stmt = $conn->prepare("UPDATE tasks SET status = ?, progress_notes = ? WHERE id = ?");
-        $stmt->bind_param("ssi", $status, $progressNotes, $taskId);
-    } else {
-        $stmt = $conn->prepare("UPDATE tasks SET status = ? WHERE id = ?");
-        $stmt->bind_param("si", $status, $taskId);
-    }
+    // Perform the update
+    $stmt = $conn->prepare("UPDATE tasks SET status = ? WHERE id = ?");
+    $stmt->bind_param("si", $status, $taskId);
     $stmt->execute();
 
     if ($stmt->affected_rows > 0) {

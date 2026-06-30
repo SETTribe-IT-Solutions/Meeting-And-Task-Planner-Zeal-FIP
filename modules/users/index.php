@@ -26,13 +26,23 @@ $result = $conn->query(
 );
 $users = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 
-$totalActive   = count(array_filter($users, fn($u) => $u['isDeleted'] === 'No'));
-$employeeCount = count(array_filter($users, fn($u) => $u['role'] === 'Employee' && $u['isDeleted'] === 'No'));
-$orgCount      = count(array_filter($users, fn($u) => $u['role'] === 'Organizer' && $u['isDeleted'] === 'No'));
-$disabledCount = count(array_filter($users, fn($u) => $u['isDeleted'] === 'Yes'));
+$totalUsers = count($users);
+$employeeCount = count(array_filter($users, fn($u) => $u['role'] === 'Employee'));
+$organizerCount = count(array_filter($users, fn($u) => $u['role'] === 'Organizer'));
 
-// Re-open create modal if there were validation errors
-$reopenCreate = !empty($errors);
+$editUser = null;
+if (isset($_GET['edit']) && ctype_digit($_GET['edit'])) {
+    $editId = (int) $_GET['edit'];
+    foreach ($users as $u) {
+        if ($u['id'] === $editId) {
+            $editUser = $u;
+            $old['name'] = $u['name'];
+            $old['department'] = $u['department'];
+            $old['email'] = $u['email'];
+            break;
+        }
+    }
+}
 ?>
 
 <!-- Page Header -->
@@ -63,39 +73,11 @@ $reopenCreate = !empty($errors);
     </div>
 </div>
 
-<!-- Flash messages -->
-<?php if (!empty($_SESSION['success'])): ?>
-<div class="alert alert-success alert-dismissible rounded-3 shadow-sm mb-4" role="alert">
-    <i class="fas fa-check-circle me-2"></i><?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-<?php endif; ?>
-<?php if (!empty($_SESSION['error'])): ?>
-<div class="alert alert-danger alert-dismissible rounded-3 shadow-sm mb-4" role="alert">
-    <i class="fas fa-exclamation-circle me-2"></i><?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-<?php endif; ?>
-
-<!-- User Table — full width -->
-<div class="card border-0 shadow-sm bg-white p-4 animate-on-scroll" id="usersTableWrapper" data-paginate data-per-page="10">
-    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3 flex-wrap gap-2">
-        <h5 class="fw-bold mb-0" style="color: var(--gov-blue);">
-            <i class="fas fa-users text-primary me-2"></i>All Users
-        </h5>
-        <?php if ($currentRole === 'Organizer'): ?>
-        <div class="btn-group">
-            <a href="download.php?format=csv"
-               class="btn btn-sm btn-success rounded-start-3 fw-semibold">
-                <i class="fas fa-file-csv me-1"></i>CSV
-            </a>
-            <a href="download.php?format=excel"
-               class="btn btn-sm btn-outline-success rounded-end-3 fw-semibold">
-                <i class="fas fa-file-excel me-1"></i>Excel
-            </a>
-        </div>
-        <?php endif; ?>
-    </div>
+    <div class="col-lg-4 animate-on-scroll">
+        <div class="card border-0 shadow-sm bg-white p-4">
+            <h5 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--gov-blue);">
+                <i class="fas fa-user-plus text-primary me-2"></i> <?php echo $editUser ? 'Edit User' : 'Create User'; ?>
+            </h5>
 
     <div class="table-filter-bar">
         <div class="table-search-input">
@@ -222,18 +204,22 @@ $reopenCreate = !empty($errors);
     </div>
 </div>
 
-<?php if ($currentRole === 'Organizer'): ?>
+            <?php if (isset($_SESSION['success'])): ?>
+                <div class="alert alert-success alert-dismissible fade show rounded-3 mb-3" role="alert">
+                    <?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            <?php endif; ?>
 
-<!-- ── Create User Modal ─────────────────────────────────────────────────────── -->
-<div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content rounded-4 shadow border-0">
-            <div class="modal-header border-0 pb-0 pt-4 px-4">
-                <div>
-                    <h5 class="modal-title fw-bold mb-0" id="createUserModalLabel" style="color:var(--gov-blue);">
-                        <i class="fas fa-user-plus me-2 text-primary"></i>Create New User
-                    </h5>
-                    <p class="text-muted small mb-0 mt-1">Fill in the details to register a new account.</p>
+            <form action="../../controllers/UserController.php" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                <input type="hidden" name="action" value="<?php echo $editUser ? 'update' : 'create'; ?>">
+                <?php if ($editUser): ?>
+                    <input type="hidden" name="user_id" value="<?php echo $editUser['id']; ?>">
+                <?php endif; ?>
+                <div class="mb-3">
+                    <label class="form-label">User Name</label>
+                    <input type="text" name="name" class="form-control rounded-3" value="<?php echo htmlspecialchars($old['name'] ?? ''); ?>" required minlength="3" maxlength="100">
                 </div>
                 <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal"></button>
             </div>
@@ -312,16 +298,10 @@ $reopenCreate = !empty($errors);
     </div>
 </div>
 
-<!-- ── Edit User Modal ───────────────────────────────────────────────────────── -->
-<div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content rounded-4 shadow border-0">
-            <div class="modal-header border-0 pb-0 pt-4 px-4">
-                <div>
-                    <h5 class="modal-title fw-bold mb-0" id="editUserModalLabel" style="color:var(--gov-blue);">
-                        <i class="fas fa-user-edit me-2 text-primary"></i>Edit User
-                    </h5>
-                    <p class="text-muted small mb-0 mt-1">Update account details below.</p>
+                <div class="mb-4">
+                    <label class="form-label">Password <?php echo $editUser ? '<span class="text-muted fs-6 fw-normal">(Leave blank to keep current)</span>' : ''; ?></label>
+                    <input type="password" name="password" class="form-control rounded-3" <?php echo $editUser ? '' : 'required'; ?> minlength="8" maxlength="64">
+                    <small class="text-muted">Use 8-64 characters with uppercase, lowercase, and a number.</small>
                 </div>
                 <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal"></button>
             </div>
@@ -331,43 +311,13 @@ $reopenCreate = !empty($errors);
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                     <input type="hidden" name="user_id" id="editUserId">
 
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label fw-semibold small">Full Name</label>
-                            <input type="text" name="name" id="editName" class="form-control rounded-3"
-                                   required minlength="3" maxlength="100">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold small">Department</label>
-                            <select name="department" id="editDept" class="form-select rounded-3" required>
-                                <option value="">Select dept...</option>
-                                <?php foreach ($departments as $dept): ?>
-                                    <option value="<?php echo htmlspecialchars($dept); ?>">
-                                        <?php echo htmlspecialchars($dept); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold small">Role</label>
-                            <select name="role" id="editRole" class="form-select rounded-3" required>
-                                <option value="Employee">Employee</option>
-                                <option value="Organizer">Organizer</option>
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-semibold small">Email ID</label>
-                            <input type="email" name="email" id="editEmail" class="form-control rounded-3"
-                                   required maxlength="150">
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 px-4 pt-0 pb-4">
-                    <button type="button" class="btn btn-outline-secondary rounded-3"
-                            data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold">
-                        <i class="fas fa-save me-1"></i>Save Changes
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary rounded-3 w-100">
+                        <i class="fas fa-save me-1"></i> <?php echo $editUser ? 'Save Changes' : 'Create User'; ?>
                     </button>
+                    <?php if ($editUser): ?>
+                        <a href="index.php" class="btn btn-outline-secondary rounded-3 w-100">Cancel Edit</a>
+                    <?php endif; ?>
                 </div>
             </form>
         </div>
@@ -393,45 +343,60 @@ $reopenCreate = !empty($errors);
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                     <input type="hidden" name="user_id" id="resetUserId">
 
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label fw-semibold small">New Password</label>
-                            <div class="input-group">
-                                <input type="password" name="new_password" id="newPassword"
-                                       class="form-control rounded-start-3"
-                                       placeholder="Min 8 chars, uppercase, lowercase, number"
-                                       required minlength="8" maxlength="64">
-                                <button type="button" class="btn btn-outline-secondary rounded-end-3"
-                                        onclick="togglePw('newPassword', this)">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-semibold small">Confirm Password</label>
-                            <div class="input-group">
-                                <input type="password" name="confirm_password" id="confirmPassword"
-                                       class="form-control rounded-start-3"
-                                       placeholder="Repeat new password"
-                                       required minlength="8" maxlength="64">
-                                <button type="button" class="btn btn-outline-secondary rounded-end-3"
-                                        onclick="togglePw('confirmPassword', this)">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                            <div id="pwMatchMsg" class="form-text"></div>
-                        </div>
-                    </div>
-                    <div class="form-text mt-1">8–64 characters · uppercase · lowercase · number</div>
-                </div>
-                <div class="modal-footer border-0 px-4 pt-0 pb-4">
-                    <button type="button" class="btn btn-outline-secondary rounded-3"
-                            data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" id="resetSubmitBtn" class="btn btn-warning rounded-3 px-4 fw-semibold">
-                        <i class="fas fa-key me-1"></i>Reset Password
-                    </button>
-                </div>
-            </form>
+            <div class="table-responsive">
+                <table class="table table-enhanced table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>User Name</th>
+                            <th>Department</th>
+                            <th>Email ID</th>
+                            <th>Role</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($users)): ?>
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">No users found.</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($users as $user): ?>
+                                <tr>
+                                    <td class="fw-semibold text-dark"><?php echo htmlspecialchars($user['name']); ?></td>
+                                    <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($user['department']); ?></span></td>
+                                    <td><?php echo htmlspecialchars($user['email']); ?></td>
+                                    <td>
+                                        <?php
+                                        $roleBadge = match($user['role']) {
+                                            'Collector' => 'badge-role badge-role-collector',
+                                            'Organizer' => 'badge-role badge-role-organizer',
+                                            'Employee' => 'badge-role badge-role-employee',
+                                            default => 'bg-secondary'
+                                        };
+                                        ?>
+                                        <span class="badge <?php echo $roleBadge; ?>"><?php echo htmlspecialchars($user['role']); ?></span>
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="?edit=<?php echo $user['id']; ?>" class="btn btn-sm btn-outline-primary me-1 rounded-3">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <?php if ($user['id'] !== $_SESSION['user_id']): ?>
+                                            <form action="../../controllers/UserController.php" method="POST" class="d-inline-block" onsubmit="return confirm('Are you sure you want to delete this user?');">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                                <input type="hidden" name="action" value="delete">
+                                                <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-3">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

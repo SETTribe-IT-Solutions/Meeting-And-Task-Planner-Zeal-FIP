@@ -145,6 +145,7 @@ $roleBadge = match($role) {
                     <i class="fas fa-key text-primary me-2"></i> Change Password
                 </h5>
                 <form action="../../controllers/ProfileController.php" method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label">Current Password</label>

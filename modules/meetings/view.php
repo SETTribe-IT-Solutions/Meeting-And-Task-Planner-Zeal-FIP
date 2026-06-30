@@ -38,13 +38,12 @@ if (!$meeting) {
     exit();
 }
 
-// 2. Fetch attendees (including arrival_time)
-$stmt = $conn->prepare("SELECT a.id as attendance_id, a.status as att_status, a.remarks as att_remarks,
-                               a.arrival_time as arrival_time,
-                               u.id as user_id, u.name as user_name, u.email as user_email, u.department as user_dept
-                        FROM attendance a
-                        JOIN users u ON a.user_id = u.id
-                        WHERE a.meeting_id = ?
+
+// 3. Fetch attendees
+$stmt = $conn->prepare("SELECT a.id as attendance_id, a.status as att_status, a.remarks as att_remarks, u.id as user_id, u.name as user_name, u.email as user_email, u.department as user_dept 
+                        FROM attendance a 
+                        JOIN users u ON a.user_id = u.id 
+                        WHERE a.meeting_id = ? 
                         ORDER BY u.name ASC");
 $stmt->bind_param("i", $meetingId);
 $stmt->execute();
@@ -164,6 +163,25 @@ $canAct      = ($role === 'Organizer' && $isScheduled);
                             <i class="fas <?php echo strtolower($meeting['mode']) === 'online' ? 'fa-video' : 'fa-building'; ?>"></i> <?php echo htmlspecialchars($meeting['mode']); ?>
                         </span>
                     </div>
+                    <!-- Meeting Action Buttons -->
+                    <div class="d-flex gap-2 mt-3 flex-wrap">
+                        <a href="attendance.php?id=<?php echo $meetingId; ?>" class="btn btn-sm btn-outline-light rounded-3">
+                            <i class="fas fa-clipboard-list me-1"></i> View Attendance
+                        </a>
+                        <?php if (isOrganizer() && (int)$meeting['organizer_id'] === (int)$_SESSION['user_id']): ?>
+                            <a href="edit.php?id=<?php echo $meetingId; ?>" class="btn btn-sm btn-warning rounded-3 text-dark">
+                                <i class="fas fa-edit me-1"></i> Edit Meeting
+                            </a>
+                            <form action="../../controllers/MeetingController.php" method="POST" class="d-inline-block" onsubmit="return confirm('Are you sure you want to delete this meeting? This will also delete related agenda, attendees, attendance, and linked records. This action cannot be undone.');">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="meeting_id" value="<?php echo $meetingId; ?>">
+                                <button type="submit" class="btn btn-sm btn-danger rounded-3">
+                                    <i class="fas fa-trash-alt me-1"></i> Delete Meeting
+                                </button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </div>
@@ -212,7 +230,7 @@ $canAct      = ($role === 'Organizer' && $isScheduled);
         </div>
 
         <!-- Meeting Tasks -->
-        <div class="card border-0 shadow-sm bg-white p-4 animate-on-scroll">
+        <div class="card border-0 shadow-sm bg-white p-4 animate-on-scroll" id="meetingTasksTableWrapper" data-paginate data-per-page="5">
             <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                 <h5 class="fw-bold mb-0" style="color: var(--gov-blue);"><i class="fas fa-tasks text-success me-2"></i> Action Items & Tasks</h5>
                 <?php if ($role === 'Organizer'): ?>
@@ -370,72 +388,34 @@ $canAct      = ($role === 'Organizer' && $isScheduled);
                                         </div>
                                     <?php endif; ?>
                                 </div>
-                                <div class="d-flex gap-1 align-items-center flex-shrink-0">
-                                    <?php if ($role === 'Organizer' || ($role === 'Employee' && $att['user_id'] == $user_id)): ?>
-                                        <!-- Status dropdown icon button -->
-                                        <div class="dropdown">
-                                            <button class="btn btn-sm btn-outline-<?php echo $statusConf['color']; ?> rounded-3 px-2 dropdown-toggle"
-                                                    type="button" data-bs-toggle="dropdown" aria-expanded="false"
-                                                    title="Update status — current: <?php echo htmlspecialchars($aStatus); ?>">
-                                                <i class="fas <?php echo $statusConf['icon']; ?>"></i>
-                                            </button>
-                                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3" style="min-width:200px;">
-                                                <?php foreach ($attStatuses as $sv => $sm): ?>
-                                                <li>
-                                                    <form action="../../controllers/AttendanceController.php" method="POST" class="m-0">
-                                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
-                                                        <input type="hidden" name="action" value="update">
-                                                        <input type="hidden" name="attendance_id" value="<?php echo $att['attendance_id']; ?>">
-                                                        <input type="hidden" name="meeting_id" value="<?php echo $meetingId; ?>">
-                                                        <input type="hidden" name="status" value="<?php echo htmlspecialchars($sv); ?>">
-                                                        <input type="hidden" name="remarks" value="<?php echo htmlspecialchars($att['att_remarks'] ?? ''); ?>">
-                                                        <button type="submit" class="dropdown-item d-flex align-items-center gap-2 px-3 py-2">
-                                                            <i class="fas <?php echo $sm['icon']; ?> <?php echo $sm['cls']; ?>"></i>
-                                                            <span class="flex-fill"><?php echo $sm['label']; ?></span>
-                                                            <?php if ($aStatus === $sv): ?>
-                                                                <i class="fas fa-check ms-auto text-primary" style="font-size:0.72rem;"></i>
-                                                            <?php endif; ?>
-                                                        </button>
-                                                    </form>
-                                                </li>
-                                                <?php endforeach; ?>
-                                            </ul>
-                                        </div>
-                                        <!-- Remarks icon button -->
-                                        <form action="../../controllers/AttendanceController.php" method="POST" class="m-0"
-                                              id="rmk_<?php echo $att['attendance_id']; ?>">
+                                <div class="text-end">
+                                    <?php
+                                    $aStatus = $att['att_status'];
+                                    $aBadge = match($aStatus) { 'Present'=>'badge-status-completed', 'Absent'=>'badge-status-cancelled', 'Pending'=>'badge-status-scheduled', default=>'bg-secondary' };
+                                    ?>
+                                    <span class="badge <?php echo $aBadge; ?> mb-2"><?php echo htmlspecialchars($aStatus); ?></span>
+
+                                    <!-- Action form if allowed -->
+                                    <?php if ($role === 'Collector' || $role === 'Organizer' || ($role === 'Employee' && $att['user_id'] == $user_id)): ?>
+                                        <form action="../../controllers/AttendanceController.php" method="POST" class="d-block mt-1">
                                             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                                             <input type="hidden" name="action" value="update">
                                             <input type="hidden" name="attendance_id" value="<?php echo $att['attendance_id']; ?>">
                                             <input type="hidden" name="meeting_id" value="<?php echo $meetingId; ?>">
-                                            <input type="hidden" name="status" value="<?php echo htmlspecialchars($aStatus); ?>">
-                                            <input type="hidden" name="remarks" id="rmk_val_<?php echo $att['attendance_id']; ?>"
-                                                   value="<?php echo htmlspecialchars($att['att_remarks'] ?? ''); ?>">
-                                            <button type="button"
-                                                    class="btn btn-sm btn-outline-secondary rounded-3 px-2"
-                                                    title="Add / Edit Remarks"
-                                                    onclick="promptMeetingRemarks('<?php echo $att['attendance_id']; ?>', <?php echo htmlspecialchars(json_encode($att['att_remarks'] ?? ''), ENT_QUOTES); ?>)">
-                                                <i class="fas fa-comment"></i>
-                                            </button>
-                                        </form>
-                                        <!-- Edit Arrival Time (Organizer only, visible for Present/Late) -->
-                                        <?php if ($role === 'Organizer' && in_array($aStatus, ['Present', 'Present with Late'], true)): ?>
-                                        <form action="../../controllers/AttendanceController.php" method="POST" class="m-0"
-                                              id="atime_<?php echo $att['attendance_id']; ?>">
-                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
-                                            <input type="hidden" name="action" value="update">
-                                            <input type="hidden" name="attendance_id" value="<?php echo $att['attendance_id']; ?>">
-                                            <input type="hidden" name="meeting_id" value="<?php echo $meetingId; ?>">
-                                            <input type="hidden" name="status" value="<?php echo htmlspecialchars($aStatus); ?>">
-                                            <input type="hidden" name="remarks" value="<?php echo htmlspecialchars($att['att_remarks'] ?? ''); ?>">
-                                            <input type="hidden" name="arrival_time" id="atime_val_<?php echo $att['attendance_id']; ?>"
-                                                   value="<?php echo htmlspecialchars($att['arrival_time'] ?? ''); ?>">
-                                            <button type="button"
-                                                    class="btn btn-sm btn-outline-success rounded-3 px-2"
-                                                    title="Edit Arrival Time"
-                                                    onclick="promptArrivalTime('<?php echo $att['attendance_id']; ?>', <?php echo htmlspecialchars(json_encode($att['arrival_time'] ?? ''), ENT_QUOTES); ?>)">
-                                                <i class="fas fa-clock"></i>
-                                            </button>
+                                            <div class="d-flex align-items-center gap-1">
+                                                <select name="status" class="form-select form-select-sm rounded-3" style="font-size: 0.8rem; width: 100px;" onchange="this.form.submit()">
+                                                    <option value="Pending" <?php echo $aStatus === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                                                    <option value="Present" <?php echo $aStatus === 'Present' ? 'selected' : ''; ?>>Present</option>
+                                                    <option value="Absent" <?php echo $aStatus === 'Absent' ? 'selected' : ''; ?>>Absent</option>
+                                                    <option value="Late" <?php echo $aStatus === 'Late' ? 'selected' : ''; ?>>Late</option>
+                                                </select>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm p-1 rounded-3" 
+                                                        style="font-size: 0.75rem;"
+                                                        onclick="promptMeetingRemarks(this, '<?php echo htmlspecialchars(addslashes($att['att_remarks'] ?? '')); ?>')">
+                                                    <i class="fas fa-comment"></i>
+                                                </button>
+                                                <input type="hidden" name="remarks" value="<?php echo htmlspecialchars($att['att_remarks'] ?? ''); ?>">
+                                            </div>
                                         </form>
                                         <?php endif; ?>
                                     <?php else: ?>

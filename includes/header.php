@@ -101,6 +101,21 @@ if ($isLoggedIn) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js for Dashboards -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+      .chart-wrapper {
+          position: relative;
+          height: 300px;
+          width: 100%;
+      }
+      @media (min-width: 992px) {
+          .chart-wrapper.large-chart { height: 400px; }
+      }
+  </style>
+
   <!-- Font Awesome 6 for icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <!-- Bootstrap Icons -->

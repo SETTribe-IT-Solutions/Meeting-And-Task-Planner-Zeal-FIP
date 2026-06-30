@@ -115,21 +115,11 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                     <h3 class="fw-bold mb-1" style="color: var(--gov-blue);">Task Board</h3>
                     <p class="text-muted mb-0">Monitor responsibilities and update completion status.</p>
                 </div>
-                <div class="d-flex gap-2 align-items-center flex-wrap">
-                    <div class="meeting-info-badge">
-                        <i class="fas fa-clock text-primary me-1"></i>
-                        <span><strong>Next:</strong> <?php echo htmlspecialchars($nextMeetingText ?? 'No upcoming meetings'); ?></span>
-                    </div>
-                    <div class="meeting-info-badge">
-                        <i class="fas fa-check-circle text-success me-1"></i>
-                        <span><?php echo htmlspecialchars($tasksDueTodayText ?? '0 tasks due today'); ?></span>
-                    </div>
-                    <?php if ($role === 'Organizer'): ?>
-                    <a href="create.php" class="btn btn-primary rounded-3 px-3 py-2">
-                        <i class="fas fa-plus-circle me-1"></i> Assign New Task
-                    </a>
-                    <?php endif; ?>
-                </div>
+                <?php if ($role === 'Organizer' || $role === 'Collector'): ?>
+                <a href="create.php" class="btn btn-primary rounded-3 px-3 py-2">
+                    <i class="fas fa-plus-circle me-1"></i> Assign Task
+                </a>
+                <?php endif; ?>
             </div>
         </div>
 <style>
@@ -319,73 +309,43 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                                         ?>
                                         <span class="badge <?php echo $sClass; ?>"><?php echo htmlspecialchars($status); ?></span>
                                     </td>
-                                    <td class="text-end" onclick="event.stopPropagation();">
-                                        <div class="d-flex gap-1 justify-content-end flex-nowrap">
-
-                                            <?php if ($role === 'Organizer'): ?>
-                                            <!-- Edit -->
-                                            <a href="edit.php?id=<?php echo (int)$task['id']; ?>"
-                                               class="btn btn-sm btn-outline-warning rounded-3 px-2"
-                                               title="Edit Task">
-                                                <i class="fas fa-pencil-alt"></i>
-                                            </a>
-                                            <?php endif; ?>
-
-                                            <!-- Update Progress (Status + Notes) -->
-                                            <button class="btn btn-sm btn-outline-info rounded-3 px-2"
-                                                    title="Update Status &amp; Progress Notes"
-                                                    onclick="event.stopPropagation(); openProgressModal(
-                                                        '<?php echo (int)$task['id']; ?>',
-                                                        <?php echo htmlspecialchars(json_encode($task['title']), ENT_QUOTES); ?>,
-                                                        '<?php echo htmlspecialchars($task['status'], ENT_QUOTES); ?>',
-                                                        <?php echo htmlspecialchars(json_encode($task['progress_notes'] ?? ''), ENT_QUOTES); ?>
-                                                    )">
-                                                <i class="fas fa-comment-alt"></i>
-                                            </button>
-
-                                            <!-- Update Status dropdown (quick) -->
-                                            <div class="dropdown">
-                                                <button class="btn btn-sm btn-outline-primary rounded-3 px-2 dropdown-toggle"
-                                                        type="button"
-                                                        data-bs-toggle="dropdown"
-                                                        aria-expanded="false"
-                                                        title="Update Status">
-                                                    <i class="fas fa-sync-alt"></i>
-                                                </button>
-                                                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3" style="min-width:140px;">
-                                                    <?php foreach (['Pending', 'In Progress', 'Completed', 'Cancelled'] as $s): ?>
-                                                    <li>
-                                                        <form action="../../controllers/UpdateTaskStatusController.php" method="POST" class="m-0">
-                                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
-                                                            <input type="hidden" name="task_id"   value="<?php echo (int)$task['id']; ?>">
-                                                            <input type="hidden" name="status"    value="<?php echo $s; ?>">
-                                                            <button type="submit"
-                                                                    class="dropdown-item <?php echo $status === $s ? 'fw-semibold text-primary' : ''; ?>"
-                                                                    style="font-size:0.85rem;">
-                                                                <?php if ($status === $s): ?><i class="fas fa-check me-1 small"></i><?php endif; ?>
-                                                                <?php echo $s; ?>
-                                                            </button>
-                                                        </form>
-                                                    </li>
-                                                    <?php endforeach; ?>
-                                                </ul>
-                                            </div>
-
-                                            <?php if ($role === 'Organizer'): ?>
-                                            <!-- Delete -->
-                                            <form action="../../controllers/DeleteTaskController.php" method="POST" class="m-0"
-                                                  onsubmit="return confirm('Delete this task? This cannot be undone.')">
+                                    <td class="text-end">
+                                        <?php if ($role === 'Employee'): ?>
+                                            <!-- Employee update actions -->
+                                            <form action="../../controllers/UpdateTaskStatusController.php" method="POST" class="d-inline-block">
                                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
-                                                <input type="hidden" name="task_id"   value="<?php echo (int)$task['id']; ?>">
-                                                <button type="submit"
-                                                        class="btn btn-sm btn-outline-danger rounded-3 px-2"
-                                                        title="Delete Task">
-                                                    <i class="fas fa-trash"></i>
+                                                <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
+                                                <select name="status" class="form-select form-select-sm d-inline-block rounded-3 w-auto" onchange="this.form.submit()">
+                                                    <option value="Pending" <?php echo $status === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                                                    <option value="In Progress" <?php echo $status === 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
+                                                    <option value="Completed" <?php echo $status === 'Completed' ? 'selected' : ''; ?>>Completed</option>
+                                                </select>
+                                            </form>
+                                        <?php elseif ($role === 'Organizer' || $role === 'Collector'): ?>
+                                            <!-- Admin/Organizer update actions -->
+                                            <form action="../../controllers/UpdateTaskStatusController.php" method="POST" class="d-inline-block mb-1">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                                <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
+                                                <select name="status" class="form-select form-select-sm d-inline-block rounded-3 w-auto" onchange="this.form.submit()">
+                                                    <option value="Pending" <?php echo $status === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                                                    <option value="In Progress" <?php echo $status === 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
+                                                    <option value="Completed" <?php echo $status === 'Completed' ? 'selected' : ''; ?>>Completed</option>
+                                                </select>
+                                            </form>
+                                            <a href="create.php?id=<?php echo $task['id']; ?>" class="btn btn-sm btn-outline-primary ms-1">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <form action="../../controllers/TaskController.php" method="POST" class="d-inline-block ms-1" onsubmit="return confirm('Are you sure you want to delete this task?');">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                                <input type="hidden" name="action" value="delete">
+                                                <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="fas fa-trash-alt"></i>
                                                 </button>
                                             </form>
-                                            <?php endif; ?>
-
-                                        </div>
+                                        <?php else: ?>
+                                            <span class="text-muted small">No actions available</span>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

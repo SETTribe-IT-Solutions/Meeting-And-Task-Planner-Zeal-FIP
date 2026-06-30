@@ -24,12 +24,12 @@ if ($role === 'Collector' || $role === 'Organizer') {
     // Organizer (super admin) and Collector both see all data
     $meetings_result = $conn->query("SELECT COUNT(*) as total FROM meetings");
     $meetings_organized = $meetings_result->fetch_assoc()['total'] ?? 0;
-
+    
     $stmt = $conn->prepare("SELECT COUNT(*) as total FROM meetings WHERE meeting_date >= ? AND status != 'Cancelled'");
     $stmt->bind_param("s", $today);
     $stmt->execute();
     $upcoming_meetings = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
-
+    
     $tasks_result = $conn->query("SELECT COUNT(*) as total FROM tasks WHERE status IN ('Pending', 'In Progress')");
     $pending_tasks = $tasks_result->fetch_assoc()['total'] ?? 0;
 
@@ -161,6 +161,135 @@ if ($role === 'Collector' || $role === 'Organizer') {
 
 $task_completion_pct = $total_tasks > 0 ? round(($completed_tasks / $total_tasks) * 100) : 0;
 
+// Gather data for charts
+$chartDataTasks = ['Pending' => 0, 'In Progress' => 0, 'Completed' => 0];
+$chartDataMeetings = [];
+// Generate last 6 months labels
+for ($i = 5; $i >= 0; $i--) {
+    $monthLabel = date('M Y', strtotime("-$i months"));
+    $chartDataMeetings[$monthLabel] = 0;
+}
+
+if ($role === 'Collector') {
+    // Tasks Breakdown
+    $res = $conn->query("SELECT status, COUNT(*) as c FROM tasks GROUP BY status");
+    while ($row = $res->fetch_assoc()) {
+        if (isset($chartDataTasks[$row['status']])) $chartDataTasks[$row['status']] = (int)$row['c'];
+    }
+    // Meetings Trend (Last 6 Months)
+    $res = $conn->query("SELECT DATE_FORMAT(meeting_date, '%b %Y') as m, COUNT(*) as c FROM meetings WHERE meeting_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH) GROUP BY m");
+    while ($row = $res->fetch_assoc()) {
+        if (isset($chartDataMeetings[$row['m']])) $chartDataMeetings[$row['m']] = (int)$row['c'];
+    }
+} elseif ($role === 'Organizer') {
+    $stmt = $conn->prepare("SELECT t.status, COUNT(*) as c FROM tasks t JOIN meetings m ON t.meeting_id = m.id WHERE m.organizer_id = ? GROUP BY t.status");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while ($row = $res->fetch_assoc()) {
+        if (isset($chartDataTasks[$row['status']])) $chartDataTasks[$row['status']] = (int)$row['c'];
+    }
+    
+    $stmt = $conn->prepare("SELECT DATE_FORMAT(meeting_date, '%b %Y') as m, COUNT(*) as c FROM meetings WHERE organizer_id = ? AND meeting_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH) GROUP BY m");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while ($row = $res->fetch_assoc()) {
+        if (isset($chartDataMeetings[$row['m']])) $chartDataMeetings[$row['m']] = (int)$row['c'];
+    }
+} else {
+    // Employee
+    $stmt = $conn->prepare("SELECT status, COUNT(*) as c FROM tasks WHERE assigned_to = ? GROUP BY status");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while ($row = $res->fetch_assoc()) {
+        if (isset($chartDataTasks[$row['status']])) $chartDataTasks[$row['status']] = (int)$row['c'];
+    }
+
+    $stmt = $conn->prepare("SELECT DATE_FORMAT(m.meeting_date, '%b %Y') as m, COUNT(DISTINCT m.id) as c FROM meetings m LEFT JOIN attendance a ON m.id = a.meeting_id WHERE (m.department = ? OR a.user_id = ?) AND m.meeting_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH) GROUP BY m");
+    $stmt->bind_param("si", $department, $user_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while ($row = $res->fetch_assoc()) {
+        if (isset($chartDataMeetings[$row['m']])) $chartDataMeetings[$row['m']] = (int)$row['c'];
+    }
+}
+
+// Prepare data for new charts: Meetings by Department & Tasks by Priority
+$chartDataDeptMeetings = [];
+$chartDataTaskPriority = ['High' => 0, 'Medium' => 0, 'Low' => 0];
+
+if ($role === 'Collector') {
+    // Meetings by Department
+    $res = $conn->query("SELECT department, COUNT(*) as c FROM meetings GROUP BY department");
+    while ($row = $res->fetch_assoc()) {
+        if (!empty($row['department'])) {
+            $chartDataDeptMeetings[$row['department']] = (int)$row['c'];
+        }
+    }
+    // Tasks by Priority
+    $res = $conn->query("SELECT priority, COUNT(*) as c FROM tasks GROUP BY priority");
+    while ($row = $res->fetch_assoc()) {
+        if (isset($chartDataTaskPriority[$row['priority']])) {
+            $chartDataTaskPriority[$row['priority']] = (int)$row['c'];
+        }
+    }
+} elseif ($role === 'Organizer') {
+    // Meetings by Department
+    $stmt = $conn->prepare("SELECT department, COUNT(*) as c FROM meetings WHERE organizer_id = ? GROUP BY department");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while ($row = $res->fetch_assoc()) {
+        if (!empty($row['department'])) {
+            $chartDataDeptMeetings[$row['department']] = (int)$row['c'];
+        }
+    }
+    // Tasks by Priority
+    $stmt = $conn->prepare("SELECT t.priority, COUNT(*) as c FROM tasks t JOIN meetings m ON t.meeting_id = m.id WHERE m.organizer_id = ? GROUP BY t.priority");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while ($row = $res->fetch_assoc()) {
+        if (isset($chartDataTaskPriority[$row['priority']])) {
+            $chartDataTaskPriority[$row['priority']] = (int)$row['c'];
+        }
+    }
+} else {
+    // Employee
+    // Meetings by Department
+    $stmt = $conn->prepare("SELECT m.department, COUNT(DISTINCT m.id) as c FROM meetings m LEFT JOIN attendance a ON m.id = a.meeting_id WHERE (m.department = ? OR a.user_id = ?) GROUP BY m.department");
+    $stmt->bind_param("si", $department, $user_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while ($row = $res->fetch_assoc()) {
+        if (!empty($row['department'])) {
+            $chartDataDeptMeetings[$row['department']] = (int)$row['c'];
+        }
+    }
+    // Tasks by Priority
+    $stmt = $conn->prepare("SELECT priority, COUNT(*) as c FROM tasks WHERE assigned_to = ? GROUP BY priority");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while ($row = $res->fetch_assoc()) {
+        if (isset($chartDataTaskPriority[$row['priority']])) {
+            $chartDataTaskPriority[$row['priority']] = (int)$row['c'];
+        }
+    }
+}
+
+// Convert PHP arrays to JSON for JS
+$tasksChartLabelsJSON = json_encode(array_keys($chartDataTasks));
+$tasksChartDataJSON = json_encode(array_values($chartDataTasks));
+$meetingsChartLabelsJSON = json_encode(array_keys($chartDataMeetings));
+$meetingsChartDataJSON = json_encode(array_values($chartDataMeetings));
+$deptMeetingsChartLabelsJSON = json_encode(array_keys($chartDataDeptMeetings));
+$deptMeetingsChartDataJSON = json_encode(array_values($chartDataDeptMeetings));
+$taskPriorityChartLabelsJSON = json_encode(array_keys($chartDataTaskPriority));
+$taskPriorityChartDataJSON = json_encode(array_values($chartDataTaskPriority));
+
 include __DIR__ . '/includes/header.php';
 ?>
 
@@ -270,8 +399,48 @@ include __DIR__ . '/includes/header.php';
     </div>
 </div>
 
-<?php if (($role === 'Collector' || $role === 'Organizer') && $total_users > 0): ?>
-<!-- Additional Stats Row for Collector/Organizer -->
+<!-- Dashboard Charts Row 1 -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6 animate-on-scroll">
+        <div class="card border-0 shadow-sm p-4 h-100">
+            <h6 class="fw-bold text-secondary mb-3" style="font-size: 0.85rem; letter-spacing: 0.05em;"><i class="fas fa-chart-pie me-2"></i> TASK STATUS BREAKDOWN</h6>
+            <div class="chart-wrapper">
+                <canvas id="tasksPieChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 animate-on-scroll">
+        <div class="card border-0 shadow-sm p-4 h-100">
+            <h6 class="fw-bold text-secondary mb-3" style="font-size: 0.85rem; letter-spacing: 0.05em;"><i class="fas fa-chart-line me-2"></i> MEETINGS TREND (LAST 6 MONTHS)</h6>
+            <div class="chart-wrapper">
+                <canvas id="meetingsLineChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dashboard Charts Row 2 -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6 animate-on-scroll">
+        <div class="card border-0 shadow-sm p-4 h-100">
+            <h6 class="fw-bold text-secondary mb-3" style="font-size: 0.85rem; letter-spacing: 0.05em;"><i class="fas fa-chart-bar me-2"></i> MEETINGS BY DEPARTMENT</h6>
+            <div class="chart-wrapper">
+                <canvas id="deptMeetingsBarChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 animate-on-scroll">
+        <div class="card border-0 shadow-sm p-4 h-100">
+            <h6 class="fw-bold text-secondary mb-3" style="font-size: 0.85rem; letter-spacing: 0.05em;"><i class="fas fa-layer-group me-2"></i> TASKS BY PRIORITY (HISTOGRAM)</h6>
+            <div class="chart-wrapper">
+                <canvas id="taskPriorityHistogram"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php if ($role === 'Collector' && $total_users > 0): ?>
+<!-- Additional Stats Row for Collector -->
 <div class="row g-4 mb-4">
     <div class="col-md-4 animate-on-scroll">
         <div class="card stat-card stat-purple border-0 h-100 p-4">
@@ -390,7 +559,7 @@ include __DIR__ . '/includes/header.php';
                         <i class="fas fa-plus-circle"></i> Create New Meeting
                     </a>
                     <a href="<?php echo $basePath; ?>/modules/tasks/create.php" class="quick-action-btn text-dark fw-bold" style="background: linear-gradient(135deg, #fbbf24, #f59e0b);">
-                        <i class="fas fa-tasks"></i> Assign New Task
+                        <i class="fas fa-tasks"></i> Assign Task
                     </a>
                     <?php endif; ?>
                     <a href="<?php echo $basePath; ?>/modules/meetings/index.php" class="quick-action-btn" style="background: #eef6ff; color: #0b3d5f; border: 1.5px solid #bfdbfe;">
@@ -439,5 +608,145 @@ include __DIR__ . '/includes/header.php';
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.color = '#475569';
+
+    // Tasks Pie Chart
+    const tasksLabels = <?php echo $tasksChartLabelsJSON; ?>;
+    const tasksData = <?php echo $tasksChartDataJSON; ?>;
+    
+    if (document.getElementById('tasksPieChart')) {
+        const ctxTasks = document.getElementById('tasksPieChart').getContext('2d');
+        new Chart(ctxTasks, {
+            type: 'doughnut',
+            data: {
+                labels: tasksLabels,
+                datasets: [{
+                    data: tasksData,
+                    backgroundColor: ['#fbbf24', '#3b82f6', '#10b981'],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true } }
+                },
+                cutout: '70%'
+            }
+        });
+    }
+
+    // Meetings Line Chart
+    const meetingsLabels = <?php echo $meetingsChartLabelsJSON; ?>;
+    const meetingsData = <?php echo $meetingsChartDataJSON; ?>;
+    
+    if (document.getElementById('meetingsLineChart')) {
+        const ctxMeetings = document.getElementById('meetingsLineChart').getContext('2d');
+        new Chart(ctxMeetings, {
+            type: 'line',
+            data: {
+                labels: meetingsLabels,
+                datasets: [{
+                    label: 'Meetings Organized',
+                    data: meetingsData,
+                    borderColor: '#0b3d5f',
+                    backgroundColor: 'rgba(11, 61, 95, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#f9b81b',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: '#f9b81b'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#e2e8f0' }, ticks: { stepSize: 1 } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Meetings by Department Bar Chart
+    const deptLabels = <?php echo $deptMeetingsChartLabelsJSON; ?>;
+    const deptData = <?php echo $deptMeetingsChartDataJSON; ?>;
+    
+    if (document.getElementById('deptMeetingsBarChart')) {
+        const ctxDept = document.getElementById('deptMeetingsBarChart').getContext('2d');
+        new Chart(ctxDept, {
+            type: 'bar',
+            data: {
+                labels: deptLabels,
+                datasets: [{
+                    label: 'Meetings',
+                    data: deptData,
+                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#f43f5e', '#6366f1'],
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#e2e8f0' }, ticks: { stepSize: 1 } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Tasks by Priority Histogram/Bar Chart
+    const priorityLabels = <?php echo $taskPriorityChartLabelsJSON; ?>;
+    const priorityData = <?php echo $taskPriorityChartDataJSON; ?>;
+    
+    if (document.getElementById('taskPriorityHistogram')) {
+        const ctxPriority = document.getElementById('taskPriorityHistogram').getContext('2d');
+        new Chart(ctxPriority, {
+            type: 'bar',
+            data: {
+                labels: priorityLabels,
+                datasets: [{
+                    label: 'Tasks',
+                    data: priorityData,
+                    // High, Medium, Low colors
+                    backgroundColor: priorityLabels.map(l => l === 'High' ? '#ef4444' : (l === 'Medium' ? '#f59e0b' : '#3b82f6')),
+                    borderRadius: 0,
+                    barPercentage: 1.0,
+                    categoryPercentage: 1.0,
+                    borderColor: '#fff',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#e2e8f0' }, ticks: { stepSize: 1 } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+});
+</script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

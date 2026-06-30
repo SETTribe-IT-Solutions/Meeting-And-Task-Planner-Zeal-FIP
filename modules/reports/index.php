@@ -15,7 +15,7 @@ include_once '../../includes/header.php';
 $conn = getDBConnection();
 $user_id = $_SESSION['user_id'];
 $role = $_SESSION['role'];
-$department = $_SESSION['department'];
+$department = $_SESSION['department'] ?? '';
 $today = date('Y-m-d');
 
 // Filter
@@ -267,6 +267,9 @@ $meetingsReport = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                     </a>
                 </div>
             </div>
+            <div class="mb-3">
+                <span class="small text-muted">RSVP Rate shows the percentage of invited participants who have been marked present. Formula: (Accepted Responses ÷ Total Invited Participants) × 100.</span>
+            </div>
 
             <div class="table-filter-bar">
                 <div class="table-search-input">
@@ -282,7 +285,7 @@ $meetingsReport = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                         <tr>
                             <th>Meeting Details</th>
                             <th>Wing / Dept</th>
-                            <th>RSVP Rate</th>
+                            <th>RSVP Rate <i class="fas fa-info-circle text-muted" title="RSVP Rate = (Accepted Responses ÷ Total Invited Participants) × 100"></i></th>
                             <th>Task Progression</th>
                             <th>Status</th>
                             <th class="text-end">Actions</th>
@@ -360,8 +363,327 @@ $meetingsReport = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                 </table>
             </div>
         </div>
+        <!-- ═══════════════════════════════════════ -->
+        <!-- ATTENDANCE REPORTS SECTION -->
+        <!-- ═══════════════════════════════════════ -->
+        <?php
+        // Fetch attendance data for reports
+        $dateFrom = isset($_GET['date_from']) ? sanitizeInput($_GET['date_from']) : '';
+        $dateTo = isset($_GET['date_to']) ? sanitizeInput($_GET['date_to']) : '';
+
+        // Meeting-wise attendance report
+        $attReportSql = "SELECT m.id, m.title, m.meeting_date, m.department,
+                         COUNT(a.id) as total_invited,
+                         SUM(CASE WHEN a.status = 'Present' THEN 1 ELSE 0 END) as present_count,
+                         SUM(CASE WHEN a.status = 'Absent' THEN 1 ELSE 0 END) as absent_count,
+                         SUM(CASE WHEN a.status = 'Late' THEN 1 ELSE 0 END) as late_count,
+                         SUM(CASE WHEN a.status = 'Pending' THEN 1 ELSE 0 END) as pending_count
+                         FROM meetings m
+                         LEFT JOIN attendance a ON m.id = a.meeting_id";
+
+        $attParams = [];
+        $attTypes = "";
+
+        if ($role === 'Organizer') {
+            $attReportSql .= " WHERE m.organizer_id = ?";
+            $attParams[] = $user_id;
+            $attTypes .= "i";
+        } elseif ($role === 'Employee') {
+            $attReportSql .= " WHERE (m.department = ? OR EXISTS (SELECT 1 FROM attendance a2 WHERE a2.meeting_id = m.id AND a2.user_id = ?))";
+            $attParams[] = $department;
+            $attParams[] = $user_id;
+            $attTypes .= "si";
+        } else {
+            $attReportSql .= " WHERE 1=1";
+        }
+
+        if (!empty($dateFrom)) {
+            $attReportSql .= " AND m.meeting_date >= ?";
+            $attParams[] = $dateFrom;
+            $attTypes .= "s";
+        }
+        if (!empty($dateTo)) {
+            $attReportSql .= " AND m.meeting_date <= ?";
+            $attParams[] = $dateTo;
+            $attTypes .= "s";
+        }
+
+        $attReportSql .= " GROUP BY m.id ORDER BY m.meeting_date DESC";
+
+        $stmt = $conn->prepare($attReportSql);
+        if (!empty($attParams)) {
+            $stmt->bind_param($attTypes, ...$attParams);
+        }
+        $stmt->execute();
+        $attReport = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        // Department-wise attendance summary
+        $deptAttSql = "SELECT m.department,
+                       COUNT(DISTINCT m.id) as meeting_count,
+                       COUNT(a.id) as total_invited,
+                       SUM(CASE WHEN a.status = 'Present' THEN 1 ELSE 0 END) as present_count,
+                       SUM(CASE WHEN a.status = 'Absent' THEN 1 ELSE 0 END) as absent_count,
+                       SUM(CASE WHEN a.status = 'Late' THEN 1 ELSE 0 END) as late_count
+                       FROM meetings m
+                       LEFT JOIN attendance a ON m.id = a.meeting_id";
+
+        $deptParams = [];
+        $deptTypes = "";
+
+        if ($role === 'Organizer') {
+            $deptAttSql .= " WHERE m.organizer_id = ?";
+            $deptParams[] = $user_id;
+            $deptTypes .= "i";
+        } elseif ($role === 'Employee') {
+            $deptAttSql .= " WHERE m.department = ?";
+            $deptParams[] = $department;
+            $deptTypes .= "s";
+        } else {
+            $deptAttSql .= " WHERE 1=1";
+        }
+
+        if (!empty($dateFrom)) {
+            $deptAttSql .= " AND m.meeting_date >= ?";
+            $deptParams[] = $dateFrom;
+            $deptTypes .= "s";
+        }
+        if (!empty($dateTo)) {
+            $deptAttSql .= " AND m.meeting_date <= ?";
+            $deptParams[] = $dateTo;
+            $deptTypes .= "s";
+        }
+
+        $deptAttSql .= " GROUP BY m.department ORDER BY m.department";
+
+        $stmt = $conn->prepare($deptAttSql);
+        if (!empty($deptParams)) {
+            $stmt->bind_param($deptTypes, ...$deptParams);
+        }
+        $stmt->execute();
+        $deptAttReport = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        ?>
+
+        <!-- Attendance Reports Header -->
+        <div class="card p-4 border-0 shadow-sm mb-4 bg-white animate-on-scroll" style="border-left: 4px solid #16a34a;">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h4 class="fw-bold mb-1" style="color: var(--gov-blue);"><i class="fas fa-clipboard-check text-success me-2"></i>Attendance Reports</h4>
+                    <p class="text-muted mb-0">Meeting-wise and department-wise attendance analysis.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-success rounded-3" onclick="exportReportTableToCSV('attendance_report.csv', 'meetingAttTable')">
+                        <i class="fas fa-file-csv me-1"></i> Export CSV
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary rounded-3" onclick="window.print()">
+                        <i class="fas fa-print me-1"></i> Print
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Date Filter for Attendance -->
+        <div class="card p-4 border-0 shadow-sm mb-4 bg-white animate-on-scroll">
+            <form method="GET" class="row g-3 align-items-end">
+                <?php if (!empty($searchQuery)): ?>
+                    <input type="hidden" name="search" value="<?php echo htmlspecialchars($searchQuery); ?>">
+                <?php endif; ?>
+                <div class="col-md-3">
+                    <label class="form-label">From Date</label>
+                    <input type="date" name="date_from" class="form-control rounded-3" value="<?php echo htmlspecialchars($dateFrom); ?>">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">To Date</label>
+                    <input type="date" name="date_to" class="form-control rounded-3" value="<?php echo htmlspecialchars($dateTo); ?>">
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary rounded-3 py-2 flex-grow-1"><i class="fas fa-filter me-1"></i> Filter</button>
+                    <a href="index.php" class="btn btn-outline-secondary rounded-3 py-2" title="Reset"><i class="fas fa-undo"></i></a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Meeting-wise Attendance Table -->
+        <div class="card p-4 border-0 shadow-sm mb-4 bg-white animate-on-scroll" id="meetingAttWrapper" data-paginate data-per-page="10">
+            <h5 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--gov-blue);">
+                <i class="fas fa-calendar-check text-primary me-2"></i>Meeting-wise Attendance
+            </h5>
+
+            <div class="table-filter-bar">
+                <div class="table-search-input">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Quick filter..." data-table-search="meetingAttWrapper">
+                </div>
+                <span class="table-result-count"><?php echo count($attReport); ?> records</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-enhanced table-hover align-middle mb-0" id="meetingAttTable">
+                    <thead>
+                        <tr>
+                            <th>Meeting</th>
+                            <th>Department</th>
+                            <th>Date</th>
+                            <th>Total Invited</th>
+                            <th>Present</th>
+                            <th>Absent</th>
+                            <th>Late</th>
+                            <th>Present %</th>
+                            <th>Absent %</th>
+                            <th>Late %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($attReport)): ?>
+                            <tr><td colspan="10" class="text-center py-4 text-muted">No attendance data found.</td></tr>
+                        <?php else: ?>
+                            <?php foreach ($attReport as $ar): ?>
+                                <?php
+                                $arTotal = (int)$ar['total_invited'];
+                                $arPresent = (int)$ar['present_count'];
+                                $arAbsent = (int)$ar['absent_count'];
+                                $arLate = (int)$ar['late_count'];
+                                $arPresentPct = $arTotal > 0 ? round(($arPresent / $arTotal) * 100) : 0;
+                                $arAbsentPct = $arTotal > 0 ? round(($arAbsent / $arTotal) * 100) : 0;
+                                $arLatePct = $arTotal > 0 ? round(($arLate / $arTotal) * 100) : 0;
+                                ?>
+                                <tr>
+                                    <td>
+                                        <a href="../meetings/attendance.php?id=<?php echo $ar['id']; ?>" class="fw-bold text-decoration-none">
+                                            <?php echo htmlspecialchars($ar['title']); ?>
+                                        </a>
+                                    </td>
+                                    <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($ar['department']); ?></span></td>
+                                    <td><?php echo date('d M Y', strtotime($ar['meeting_date'])); ?></td>
+                                    <td class="fw-semibold"><?php echo $arTotal; ?></td>
+                                    <td><span class="text-success fw-bold"><?php echo $arPresent; ?></span></td>
+                                    <td><span class="text-danger fw-bold"><?php echo $arAbsent; ?></span></td>
+                                    <td><span class="text-warning fw-bold"><?php echo $arLate; ?></span></td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <div class="progress flex-grow-1" style="height: 6px; width: 50px;">
+                                                <div class="progress-bar bg-success" style="width: <?php echo $arPresentPct; ?>%"></div>
+                                            </div>
+                                            <small class="fw-bold"><?php echo $arPresentPct; ?>%</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <div class="progress flex-grow-1" style="height: 6px; width: 50px;">
+                                                <div class="progress-bar bg-danger" style="width: <?php echo $arAbsentPct; ?>%"></div>
+                                            </div>
+                                            <small class="fw-bold"><?php echo $arAbsentPct; ?>%</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <div class="progress flex-grow-1" style="height: 6px; width: 50px;">
+                                                <div class="progress-bar bg-warning" style="width: <?php echo $arLatePct; ?>%"></div>
+                                            </div>
+                                            <small class="fw-bold"><?php echo $arLatePct; ?>%</small>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Department-wise Attendance Summary -->
+        <div class="card p-4 border-0 shadow-sm mb-4 bg-white animate-on-scroll" id="deptAttWrapper" data-paginate data-per-page="10">
+            <h5 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--gov-blue);">
+                <i class="fas fa-building text-info me-2"></i>Department-wise Attendance Summary
+            </h5>
+
+            <div class="table-responsive">
+                <table class="table table-enhanced table-hover align-middle mb-0" id="deptAttTable">
+                    <thead>
+                        <tr>
+                            <th>Department</th>
+                            <th>Meetings</th>
+                            <th>Total Invited</th>
+                            <th>Present</th>
+                            <th>Absent</th>
+                            <th>Late</th>
+                            <th>Present %</th>
+                            <th>Absent %</th>
+                            <th>Late %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($deptAttReport)): ?>
+                            <tr><td colspan="9" class="text-center py-4 text-muted">No department attendance data found.</td></tr>
+                        <?php else: ?>
+                            <?php foreach ($deptAttReport as $dar): ?>
+                                <?php
+                                $darTotal = (int)$dar['total_invited'];
+                                $darPresent = (int)$dar['present_count'];
+                                $darAbsent = (int)$dar['absent_count'];
+                                $darLate = (int)$dar['late_count'];
+                                $darPresentPct = $darTotal > 0 ? round(($darPresent / $darTotal) * 100) : 0;
+                                $darAbsentPct = $darTotal > 0 ? round(($darAbsent / $darTotal) * 100) : 0;
+                                $darLatePct = $darTotal > 0 ? round(($darLate / $darTotal) * 100) : 0;
+                                ?>
+                                <tr>
+                                    <td class="fw-bold text-dark"><?php echo htmlspecialchars($dar['department']); ?></td>
+                                    <td><?php echo (int)$dar['meeting_count']; ?></td>
+                                    <td class="fw-semibold"><?php echo $darTotal; ?></td>
+                                    <td><span class="text-success fw-bold"><?php echo $darPresent; ?></span></td>
+                                    <td><span class="text-danger fw-bold"><?php echo $darAbsent; ?></span></td>
+                                    <td><span class="text-warning fw-bold"><?php echo $darLate; ?></span></td>
+                                    <td><small class="fw-bold"><?php echo $darPresentPct; ?>%</small></td>
+                                    <td><small class="fw-bold"><?php echo $darAbsentPct; ?>%</small></td>
+                                    <td><small class="fw-bold"><?php echo $darLatePct; ?>%</small></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- Export Script for Reports -->
+<script>
+function exportReportTableToCSV(filename, tableId) {
+    var table = document.getElementById(tableId);
+    if (!table) { alert('No data to export.'); return; }
+    var csv = [];
+    var rows = table.querySelectorAll('tr');
+    rows.forEach(function(row) {
+        var cols = row.querySelectorAll('td, th');
+        var rowData = [];
+        cols.forEach(function(col) {
+            var text = col.innerText.replace(/"/g, '""').trim();
+            rowData.push('"' + text + '"');
+        });
+        csv.push(rowData.join(','));
+    });
+    var csvString = csv.join('\n');
+    var blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>
+
+<!-- Print Styles for Reports -->
+<style>
+@media print {
+    .header, .sidebar, .sidebar-backdrop, .footer, .table-filter-bar,
+    form, .btn, .pagination-wrapper, .badge.bg-primary { display: none !important; }
+    .main-content { padding: 0 !important; }
+    .card { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; }
+    .stat-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .progress-bar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
 
 <?php include_once '../../includes/footer.php'; ?>
 

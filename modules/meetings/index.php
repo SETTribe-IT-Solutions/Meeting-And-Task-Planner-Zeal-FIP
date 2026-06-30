@@ -11,6 +11,7 @@ if (!isset($_SESSION['role'])) {
 require_once '../../config/db.php';
 include_once '../../includes/header.php';
 
+$currentUserId = (int) ($_SESSION['user_id'] ?? 0);
 $conn = getDBConnection();
 $user_id = $_SESSION['user_id'];
 $role    = $_SESSION['role'];
@@ -156,61 +157,23 @@ $today = date('Y-m-d');
                                     <span class="badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($meeting['status']); ?></span>
                                 </td>
                                 <td><span class="fw-medium"><?php echo htmlspecialchars($meeting['organizer_name']); ?></span></td>
-                                <td class="text-end" onclick="event.stopPropagation();">
-                                    <div class="d-flex gap-1 justify-content-end flex-nowrap">
-                                    <?php if ($role === 'Organizer'): ?>
-                                        <?php if (strtolower($meeting['status']) === 'scheduled'): ?>
-                                        <a href="edit.php?id=<?php echo (int)$meeting['id']; ?>"
-                                           class="btn btn-sm btn-outline-warning rounded-3 px-2"
-                                           title="Edit Meeting">
-                                            <i class="fas fa-pencil-alt"></i>
+                                <td class="text-end">
+                                    <a href="view.php?id=<?php echo $meeting['id']; ?>" class="btn btn-sm btn-outline-secondary me-1" onclick="event.stopPropagation();">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <?php if ($meeting['organizer_id'] === $currentUserId): ?>
+                                        <a href="edit.php?id=<?php echo $meeting['id']; ?>" class="btn btn-sm btn-outline-primary me-1" onclick="event.stopPropagation();">
+                                            <i class="fas fa-edit"></i>
                                         </a>
-                                        <button type="button"
-                                            class="btn btn-sm btn-outline-success rounded-3 px-2"
-                                            title="Mark as Completed"
-                                            data-meeting-id="<?php echo (int)$meeting['id']; ?>"
-                                            data-meeting-title="<?php echo htmlspecialchars($meeting['title']); ?>"
-                                            onclick="openCompleteModal(this)">
-                                            <i class="fas fa-check-circle"></i>
-                                        </button>
-                                        <button type="button"
-                                            class="btn btn-sm btn-outline-danger rounded-3 px-2"
-                                            title="Cancel Meeting"
-                                            data-meeting-id="<?php echo (int)$meeting['id']; ?>"
-                                            data-meeting-title="<?php echo htmlspecialchars($meeting['title']); ?>"
-                                            data-meeting-date="<?php echo date('d M Y', strtotime($meeting['meeting_date'])); ?>"
-                                            onclick="openCancelModal(this)">
-                                            <i class="fas fa-calendar-times"></i>
-                                        </button>
-                                        <?php endif; ?>
-                                        <?php if (strtolower($meeting['status']) === 'completed'): ?>
-                                        <a href="../tasks/create.php?meeting_id=<?php echo (int)$meeting['id']; ?>"
-                                           class="btn btn-sm btn-outline-primary rounded-3 open-add-task-modal"
-                                           data-meeting-id="<?php echo (int)$meeting['id']; ?>"
-                                           data-meeting-title="<?php echo htmlspecialchars($meeting['title']); ?>"
-                                           data-meeting-date="<?php echo htmlspecialchars($meeting['meeting_date']); ?>"
-                                           data-meeting-department="<?php echo htmlspecialchars($meeting['department']); ?>"
-                                           data-organizer-id="<?php echo (int)$meeting['organizer_id']; ?>"
-                                           data-organizer-name="<?php echo htmlspecialchars($meeting['organizer_name']); ?>"
-                                           title="Add Task">
-                                            <i class="fas fa-plus-circle"></i>
-                                        </a>
-                                        <?php else: ?>
-                                        <button type="button"
-                                            class="btn btn-sm btn-outline-secondary rounded-3 px-2"
-                                            title="Tasks can only be added after the meeting is Completed"
-                                            disabled style="opacity:0.4; cursor:not-allowed;">
-                                            <i class="fas fa-plus-circle"></i>
-                                        </button>
-                                        <?php endif; ?>
-                                    <?php else: ?>
-                                        <a href="view.php?id=<?php echo (int)$meeting['id']; ?>"
-                                           class="btn btn-sm btn-outline-secondary rounded-3 px-2"
-                                           title="View Meeting">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
+                                        <form action="../../controllers/MeetingController.php" method="POST" class="d-inline-block" onsubmit="event.stopPropagation(); return confirm('Are you sure you want to delete this meeting? This will also delete related agenda, attendees, attendance, and linked records. This action cannot be undone.');">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                            <input type="hidden" name="action" value="delete">
+                                            <input type="hidden" name="meeting_id" value="<?php echo $meeting['id']; ?>">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </form>
                                     <?php endif; ?>
-                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -372,7 +335,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="addTaskModalLabel"><i class="fas fa-tasks me-2 text-warning"></i> Assign New Task</h5>
+                <h5 class="modal-title" id="addTaskModalLabel"><i class="fas fa-tasks me-2 text-warning"></i> Assign Task</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="../../controllers/TaskController.php" method="POST">

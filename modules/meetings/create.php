@@ -36,8 +36,9 @@ include_once '../../includes/header.php';
                     <div class="alert alert-danger rounded-3"><?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?></div>
                 <?php endif; ?>
 
-                <form action="../../controllers/MeetingController.php" method="POST" enctype="multipart/form-data">
+                <form action="../../controllers/MeetingController.php" method="POST">
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                    <input type="hidden" name="action" value="create">
                     <div class="row g-3">
 
                         <!-- Row 1: Title + Date -->
@@ -209,11 +210,26 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     ampmSelect.addEventListener('change', updateTime);
 
-    // ── Mode → show/hide Location & URL ──
-    function updateModeFields() {
-        const mode = modeSelect.value;
-        const showLoc = (mode === 'Offline' || mode === 'Hybrid');
-        const showUrl = (mode === 'Online'  || mode === 'Hybrid');
+    ampmSelect.addEventListener('change', updateTimeHiddenInput);
+
+    // Validate form before submission
+    form.addEventListener('submit', function(e) {
+        updateTimeHiddenInput();
+        const hour = hourInput.value;
+        const minute = minuteInput.value;
+        const ampm = ampmSelect.value;
+
+        if (!hour || !minute || !ampm) {
+            e.preventDefault();
+            alert('Please select a valid time (HH:MM AM/PM)');
+            return false;
+        }
+
+        if (parseInt(hour) < 1 || parseInt(hour) > 12) {
+            e.preventDefault();
+            alert('Hour must be between 1 and 12');
+            return false;
+        }
 
         locationField.style.display   = showLoc ? '' : 'none';
         meetingUrlField.style.display = showUrl ? '' : 'none';

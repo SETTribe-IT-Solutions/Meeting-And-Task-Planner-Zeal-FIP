@@ -18,20 +18,16 @@ $departments = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 
 $totalDepts  = count($departments);
 $activeDepts = count(array_filter($departments, fn($d) => ($d['is_active'] ?? 'Yes') === 'Yes'));
-$inactiveDepts = $totalDepts - $activeDepts;
-
-$deptErrors  = $_SESSION['department_errors'] ?? [];
-$deptOld     = $_SESSION['department_old']    ?? [];
-unset($_SESSION['department_errors'], $_SESSION['department_old']);
-
-// Re-open create modal on create errors (no department_id in old data)
-$reopenCreate = !empty($deptErrors) && empty($deptOld['department_id']);
-// Re-open edit modal on update errors
-$reopenEditId = !empty($deptErrors) && !empty($deptOld['department_id'])
-    ? (int)$deptOld['department_id']
-    : (isset($_GET['edit']) ? (int)$_GET['edit'] : 0);
-
-include_once '../../includes/header.php';
+$editDepartment = null;
+if (isset($_GET['edit']) && ctype_digit($_GET['edit'])) {
+    $editId = (int) $_GET['edit'];
+    foreach ($departments as $dept) {
+        if ($dept['id'] === $editId) {
+            $editDepartment = $dept;
+            break;
+        }
+    }
+}
 ?>
 
 <!-- Page Header -->
@@ -61,37 +57,34 @@ include_once '../../includes/header.php';
     </div>
 </div>
 
-<!-- Flash messages -->
-<?php if (!empty($_SESSION['success'])): ?>
-<div class="alert alert-success alert-dismissible rounded-3 shadow-sm mb-4" role="alert">
-    <i class="fas fa-check-circle me-2"></i><?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-<?php endif; ?>
-<?php if (!empty($_SESSION['error'])): ?>
-<div class="alert alert-danger alert-dismissible rounded-3 shadow-sm mb-4" role="alert">
-    <i class="fas fa-exclamation-circle me-2"></i><?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-<?php endif; ?>
+    <div class="col-lg-4 animate-on-scroll">
+        <div class="card border-0 shadow-sm bg-white p-4">
+            <h5 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--gov-blue);">
+                <i class="fas fa-plus-circle text-primary me-2"></i> <?php echo $editDepartment ? 'Edit Department' : 'Add Department'; ?>
+            </h5>
 
-<!-- Departments Table — full width -->
-<div class="card border-0 shadow-sm bg-white p-4 animate-on-scroll"
-     id="deptTableWrapper" data-paginate data-per-page="10">
-
-    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3 flex-wrap gap-2">
-        <h5 class="fw-bold mb-0" style="color: var(--gov-blue);">
-            <i class="fas fa-building text-primary me-2"></i>All Departments
-        </h5>
-    </div>
-
-    <div class="table-filter-bar">
-        <div class="table-search-input">
-            <i class="fas fa-search"></i>
-            <input type="text" placeholder="Search departments..." data-table-search="deptTableWrapper">
-        </div>
-        <span class="table-result-count"><?php echo $totalDepts; ?> records</span>
-    </div>
+            <?php if (isset($_SESSION['success'])): ?>
+                <div class="alert alert-success alert-dismissible fade show rounded-3 mb-3" role="alert">
+                    <?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            <?php endif; ?>
+            <?php if (isset($_SESSION['department_errors']) && is_array($_SESSION['department_errors'])): ?>
+                <div class="alert alert-danger alert-dismissible fade show rounded-3 mb-3" role="alert">
+                    <ul class="mb-0">
+                        <?php foreach ($_SESSION['department_errors'] as $error): ?>
+                            <li><?php echo htmlspecialchars($error); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                <?php unset($_SESSION['department_errors']); ?>
+            <?php elseif (isset($_SESSION['error'])): ?>
+                <div class="alert alert-danger alert-dismissible fade show rounded-3 mb-3" role="alert">
+                    <?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            <?php endif; ?>
 
     <div class="table-responsive">
         <table class="table table-enhanced table-hover align-middle mb-0">
@@ -194,38 +187,27 @@ include_once '../../includes/header.php';
                 <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal"></button>
             </div>
             <form action="../../controllers/DepartmentController.php" method="POST">
-                <div class="modal-body px-4 pt-3 pb-2">
-                    <input type="hidden" name="action" value="create">
-                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
-
-                    <?php if ($reopenCreate && !empty($deptErrors)): ?>
-                    <div class="alert alert-danger rounded-3 py-2 small mb-3">
-                        <?php foreach ($deptErrors as $e): ?>
-                            <div><i class="fas fa-exclamation-circle me-1"></i><?php echo htmlspecialchars($e); ?></div>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php endif; ?>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold small">Department Name</label>
-                        <input type="text" name="name" class="form-control rounded-3"
-                               placeholder="e.g. Revenue, Education"
-                               value="<?php echo $reopenCreate ? htmlspecialchars($deptOld['name'] ?? '') : ''; ?>"
-                               required minlength="2" maxlength="100">
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label fw-semibold small">Description <span class="text-muted fw-normal">(optional)</span></label>
-                        <textarea name="description" class="form-control rounded-3" rows="3"
-                                  placeholder="Brief overview of department functions..."
-                                  maxlength="1000"><?php echo $reopenCreate ? htmlspecialchars($deptOld['description'] ?? '') : ''; ?></textarea>
-                    </div>
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                <input type="hidden" name="action" value="<?php echo $editDepartment ? 'update' : 'create'; ?>">
+                <?php if ($editDepartment): ?>
+                    <input type="hidden" name="department_id" value="<?php echo $editDepartment['id']; ?>">
+                <?php endif; ?>
+                <div class="mb-3">
+                    <label class="form-label">Department Name</label>
+                    <input type="text" name="name" class="form-control rounded-3" required placeholder="e.g., Revenue, Education" value="<?php echo $editDepartment ? htmlspecialchars($editDepartment['name']) : ''; ?>">
                 </div>
-                <div class="modal-footer border-0 px-4 pt-0 pb-4">
-                    <button type="button" class="btn btn-outline-secondary rounded-3" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold">
-                        <i class="fas fa-plus-circle me-1"></i>Add Department
-                    </button>
+                <div class="mb-4">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" class="form-control rounded-3" rows="3" placeholder="Brief overview of department functions..."><?php echo $editDepartment ? htmlspecialchars($editDepartment['description']) : ''; ?></textarea>
                 </div>
+                <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary rounded-3 w-100">
+                    <i class="fas fa-plus-circle me-1"></i> <?php echo $editDepartment ? 'Save Changes' : 'Add Department'; ?>
+                </button>
+                <?php if ($editDepartment): ?>
+                    <a href="index.php" class="btn btn-outline-secondary rounded-3 w-100">Cancel Edit</a>
+                <?php endif; ?>
+            </div>
             </form>
         </div>
     </div>
@@ -250,39 +232,52 @@ include_once '../../includes/header.php';
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                     <input type="hidden" name="department_id" id="editDeptId">
 
-                    <?php if ($reopenEditId && !empty($deptErrors)): ?>
-                    <div class="alert alert-danger rounded-3 py-2 small mb-3">
-                        <?php foreach ($deptErrors as $e): ?>
-                            <div><i class="fas fa-exclamation-circle me-1"></i><?php echo htmlspecialchars($e); ?></div>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php endif; ?>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold small">Department Name</label>
-                        <input type="text" name="name" id="editDeptName" class="form-control rounded-3"
-                               required minlength="2" maxlength="100">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold small">Description <span class="text-muted fw-normal">(optional)</span></label>
-                        <textarea name="description" id="editDeptDesc" class="form-control rounded-3"
-                                  rows="3" maxlength="1000"></textarea>
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label fw-semibold small">Status</label>
-                        <select name="status" id="editDeptStatus" class="form-select rounded-3">
-                            <option value="Yes">Active</option>
-                            <option value="No">Inactive</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 px-4 pt-0 pb-4">
-                    <button type="button" class="btn btn-outline-secondary rounded-3" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold">
-                        <i class="fas fa-save me-1"></i>Save Changes
-                    </button>
-                </div>
-            </form>
+            <div class="table-responsive">
+                <table class="table table-enhanced table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Department Name</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($departments)): ?>
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">No departments found.</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($departments as $dept): ?>
+                                <tr>
+                                    <td class="fw-bold text-dark"><?php echo htmlspecialchars($dept['name']); ?></td>
+                                    <td class="text-muted"><?php echo htmlspecialchars($dept['description'] ?? '—'); ?></td>
+                                    <td>
+                                        <?php if (($dept['is_active'] ?? 'Yes') === 'Yes'): ?>
+                                            <span class="badge badge-status-completed">Active</span>
+                                        <?php else: ?>
+                                            <span class="badge badge-status-cancelled">Inactive</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="?edit=<?php echo $dept['id']; ?>" class="btn btn-sm btn-outline-primary me-1 rounded-3">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <form action="../../controllers/DepartmentController.php" method="POST" class="d-inline-block" onsubmit="return confirm('Are you sure you want to delete this department? This will fail if employees, meetings, or active tasks are still associated.');">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                            <input type="hidden" name="action" value="delete">
+                                            <input type="hidden" name="department_id" value="<?php echo $dept['id']; ?>">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-3">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

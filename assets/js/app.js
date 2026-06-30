@@ -636,12 +636,24 @@ document.addEventListener('DOMContentLoaded', function () {
             }).catch(function () { /* ignore fetch errors */ });
     }
 
-    // Wire up modal department select (used in meetings list quick-add task modal)
-    var modalDeptEl = document.getElementById('modal_department_select');
-    if (modalDeptEl) {
-        var modalAssigneeEl = document.getElementById('modal_assigned_to');
-        modalDeptEl.addEventListener('change', function () {
-            populateUsersForDepartment(this.value, modalAssigneeEl, []);
+    // Wire up department selects if present on page
+    ['department_select', 'modal_department_select'].forEach(function (id) {
+        var deptEl = document.getElementById(id);
+        if (!deptEl) return;
+        deptEl.addEventListener('change', function () {
+            var dept = this.value;
+            var targetId = id === 'modal_department_select' ? 'modal_assigned_to' : 'assigned_to_select';
+            var selectEl = document.getElementById(targetId);
+            
+            var preselected = [];
+            try {
+                var pData = selectEl.getAttribute('data-preselected');
+                if (pData) preselected = JSON.parse(pData);
+            } catch (e) {}
+
+            populateUsersForDepartment(dept, selectEl, preselected);
+            // Clear the attribute so future manual changes don't auto-select
+            selectEl.removeAttribute('data-preselected');
         });
     }
 

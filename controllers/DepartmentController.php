@@ -16,6 +16,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
+// CSRF verification
+$submitted_token = trim($_POST['csrf_token'] ?? '');
+if (empty($submitted_token) || !hash_equals($_SESSION['csrf_token'] ?? '', $submitted_token)) {
+    $_SESSION['error'] = 'Invalid security token. Please refresh the page and try again.';
+    header('Location: ../modules/departments/index.php');
+    exit();
+}
+
 $action = $_POST['action'] ?? 'create';
 $departmentId = isset($_POST['department_id']) ? (int)$_POST['department_id'] : 0;
 $name = trim($_POST['name'] ?? '');
@@ -26,10 +34,60 @@ $errors = [];
 if ($action === 'delete') {
     try {
         $conn = getDBConnection();
-        $stmt = $conn->prepare("DELETE FROM departments WHERE id = ?");
+
+        $stmt = $conn->prepare("SELECT name FROM departments WHERE id = ? LIMIT 1");
         $stmt->bind_param("i", $departmentId);
         $stmt->execute();
-        $_SESSION['success'] = 'Department deleted successfully.';
+        $departmentRow = $stmt->get_result()->fetch_assoc();
+
+        if (!$departmentRow) {
+            $_SESSION['department_errors'] = ['Department not found.'];
+        } else {
+            $departmentName = $departmentRow['name'];
+            // Check for active employees
+            $stmt = $conn->prepare("SELECT COUNT(*) AS total FROM users WHERE department = ? AND isDeleted = 'No'");
+            $stmt->bind_param("s", $departmentName);
+            $stmt->execute();
+            $assignedCount = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+
+            // Check for active meetings linked to this department
+            $stmt = $conn->prepare("SELECT COUNT(*) AS total FROM meetings WHERE department = ? AND status != 'Cancelled'");
+            $stmt->bind_param("s", $departmentName);
+            $stmt->execute();
+            $activeMeetings = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+
+            // Check for active tasks linked via meetings in this department
+            $stmt = $conn->prepare("SELECT COUNT(*) AS total FROM tasks t JOIN meetings m ON t.meeting_id = m.id WHERE m.department = ? AND t.status != 'Completed'");
+            $stmt->bind_param("s", $departmentName);
+            $stmt->execute();
+            $activeTasks = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+
+            $warnings = [];
+            if ($assignedCount > 0) {
+                $warnings[] = "$assignedCount active employee(s) are assigned to this department.";
+            }
+            if ($activeMeetings > 0) {
+                $warnings[] = "$activeMeetings active meeting(s) are linked to this department.";
+            }
+            if ($activeTasks > 0) {
+                $warnings[] = "$activeTasks pending/in-progress task(s) are linked to this department.";
+            }
+
+            if (!empty($warnings)) {
+                $_SESSION['department_errors'] = array_merge(
+                    ['Department cannot be deleted:'],
+                    $warnings
+                );
+            } else {
+                $stmt = $conn->prepare("DELETE FROM departments WHERE id = ?");
+                $stmt->bind_param("i", $departmentId);
+                if ($stmt->execute()) {
+                    $_SESSION['success'] = 'Department deleted successfully.';
+                } else {
+                    $_SESSION['department_errors'] = ['Unable to delete department right now.'];
+                }
+            }
+        }
     } catch (Exception $e) {
         error_log('Department deletion failed: ' . $e->getMessage());
         $_SESSION['department_errors'] = ['Unable to delete department right now.'];
