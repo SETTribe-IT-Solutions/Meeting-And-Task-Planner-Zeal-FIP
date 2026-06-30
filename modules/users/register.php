@@ -742,9 +742,7 @@ $designations = [
                                 <i class="bi bi-person-badge icon"></i>
                                 <select name="role" id="reg-role" required>
                                     <option value="" disabled <?php echo empty($old['role']) ? 'selected' : ''; ?>>-- Select Role --</option>
-                                    <option value="Collector" <?php echo $old['role'] === 'Collector' ? 'selected' : ''; ?>>🏛️ Collector</option>
-                                    <option value="Organizer" <?php echo $old['role'] === 'Organizer' ? 'selected' : ''; ?>>📋 Organizer</option>
-                                    <option value="Employee" <?php echo $old['role'] === 'Employee' ? 'selected' : ''; ?>>👤 Employee</option>
+                                    <option value="Employee" selected>👤 Employee</option>
                                 </select>
                             </div>
                             <div class="field-msg error" id="role-error"><i class="bi bi-x-circle-fill"></i> <span>Please select a role</span></div>

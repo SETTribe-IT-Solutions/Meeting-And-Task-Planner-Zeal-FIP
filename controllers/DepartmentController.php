@@ -5,8 +5,8 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/../config/db.php';
 
-if (!isLoggedIn() || !isOrganizer()) {
-    $_SESSION['error'] = 'Only organizers and collectors can manage departments.';
+if (!isLoggedIn() || $_SESSION['role'] !== 'Organizer') {
+    $_SESSION['error'] = 'Only organizers can manage departments.';
     header('Location: ../index.php');
     exit();
 }
@@ -33,6 +33,23 @@ if ($action === 'delete') {
     } catch (Exception $e) {
         error_log('Department deletion failed: ' . $e->getMessage());
         $_SESSION['department_errors'] = ['Unable to delete department right now.'];
+    }
+
+    header('Location: ../modules/departments/index.php');
+    exit();
+}
+
+if ($action === 'toggle') {
+    try {
+        $conn = getDBConnection();
+        $newStatus = (isset($_POST['is_active']) && $_POST['is_active'] === 'No') ? 'No' : 'Yes';
+        $stmt = $conn->prepare("UPDATE departments SET is_active = ? WHERE id = ?");
+        $stmt->bind_param("si", $newStatus, $departmentId);
+        $stmt->execute();
+        $_SESSION['success'] = 'Department status updated.';
+    } catch (Exception $e) {
+        error_log('Department toggle failed: ' . $e->getMessage());
+        $_SESSION['department_errors'] = ['Unable to update department status.'];
     }
 
     header('Location: ../modules/departments/index.php');

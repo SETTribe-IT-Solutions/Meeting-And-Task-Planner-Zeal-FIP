@@ -3,23 +3,45 @@
 // Database configuration file
 
 if (!defined('DB_HOST')) {
-    define('DB_HOST', 'localhost');
+    define('DB_HOST', '82.25.121.144');
 }
 if (!defined('DB_USER')) {
-    define('DB_USER', 'root');
+    define('DB_USER', 'u196817721_MTP_DB_U');
 }
 if (!defined('DB_PASS')) {
-    define('DB_PASS', '');
+    define('DB_PASS', 'MeetingAndTaskP@2026');
 }
 if (!defined('DB_NAME')) {
-    define('DB_NAME', 'meeting_planner');
+    define('DB_NAME', 'u196817721_MTP_DB');
 }
 
 // Calculate project base URL for routing
 if (!defined('APP_URL')) {
-    $docRoot = str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT'] ?? '');
-    $currentDir = str_replace('\\', '/', dirname(__DIR__));
-    define('APP_URL', rtrim(str_replace($docRoot, '', $currentDir), '/'));
+    $docRoot    = rtrim(str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
+    $currentDir = rtrim(str_replace('\\', '/', dirname(__DIR__)), '/');
+    $computed   = rtrim(str_replace($docRoot, '', $currentDir), '/');
+
+    // Fallback for Windows junctions/symlinks where PHP resolves __DIR__ to the
+    // real path (different drive) while DOCUMENT_ROOT stays on the virtual drive.
+    if ($docRoot === '' || preg_match('/^[A-Za-z]:/', ltrim($computed, '/'))) {
+        $scriptVirtual = rtrim(str_replace('\\', '/', $_SERVER['SCRIPT_FILENAME'] ?? ''), '/');
+        $scriptReal    = rtrim(str_replace('\\', '/', realpath($scriptVirtual) ?: $scriptVirtual), '/');
+        $scriptRealDir = dirname($scriptReal);
+
+        // How many directory levels deep is the script within the app root?
+        $relPath = '';
+        if ($currentDir !== '' && stripos($scriptRealDir, $currentDir) === 0) {
+            $relPath = ltrim(substr($scriptRealDir, strlen($currentDir)), '/');
+        }
+        $depth = ($relPath !== '') ? count(explode('/', $relPath)) : 0;
+
+        // Walk up `depth` levels from the virtual script directory
+        $parts    = explode('/', rtrim(dirname($scriptVirtual), '/'));
+        $appParts = array_slice($parts, 0, count($parts) - $depth);
+        $computed = rtrim(str_replace($docRoot, '', implode('/', $appParts)), '/');
+    }
+
+    define('APP_URL', $computed);
 }
 
 // Helper function to execute SQL statements from a file
@@ -128,6 +150,7 @@ function getDBConnection() {
         }
 
         ensureDepartmentStructure($conn);
+        ensurePhase2ASchema($conn);
         
         return $conn;
     } catch (Exception $e) {
@@ -192,6 +215,12 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Ensure a CSRF token is always available for authenticated sessions.
+// This covers sessions that existed before CSRF was introduced.
+if (!empty($_SESSION['user_id']) && empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 // Language detection and persistence
 if (isset($_GET['lang'])) {
     $_SESSION['lang'] = ($_GET['lang'] === 'mr') ? 'mr' : 'en';
@@ -226,18 +255,78 @@ function __($key) {
 // Set timezone
 date_default_timezone_set('Asia/Kolkata');
 
-// Helper function for debugging
+function ensurePhase2ASchema($conn) {
+    // attendance.arrival_time (Phase 2A Feature 3)
+    $r = $conn->query("SHOW COLUMNS FROM attendance LIKE 'arrival_time'");
+    if ($r && $r->num_rows === 0) {
+        $conn->query("ALTER TABLE attendance ADD COLUMN arrival_time TIME NULL AFTER status");
+    }
+
+    // tasks.progress_notes (Phase 2A Feature 4)
+    $r = $conn->query("SHOW COLUMNS FROM tasks LIKE 'progress_notes'");
+    if ($r && $r->num_rows === 0) {
+        $conn->query("ALTER TABLE tasks ADD COLUMN progress_notes TEXT NULL AFTER notes");
+    }
+
+    // tasks.updated_at (Phase 2A Feature 5)
+    $r = $conn->query("SHOW COLUMNS FROM tasks LIKE 'updated_at'");
+    if ($r && $r->num_rows === 0) {
+        $conn->query("ALTER TABLE tasks ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at");
+    }
+
+    // meeting_attachments table (Phase 2A Feature 1)
+    $conn->query("CREATE TABLE IF NOT EXISTS meeting_attachments (
+        id            INT AUTO_INCREMENT PRIMARY KEY,
+        meeting_id    INT          NOT NULL,
+        uploaded_by   INT          NOT NULL,
+        original_name VARCHAR(255) NOT NULL,
+        stored_name   VARCHAR(255) NOT NULL,
+        file_size     INT          NOT NULL,
+        mime_type     VARCHAR(100) NOT NULL,
+        uploaded_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (meeting_id)  REFERENCES meetings(id) ON DELETE CASCADE,
+        FOREIGN KEY (uploaded_by) REFERENCES users(id),
+        INDEX idx_ma_meeting_id (meeting_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // task_attachments table (Phase 2A Feature 2)
+    $conn->query("CREATE TABLE IF NOT EXISTS task_attachments (
+        id            INT AUTO_INCREMENT PRIMARY KEY,
+        task_id       INT          NOT NULL,
+        uploaded_by   INT          NOT NULL,
+        original_name VARCHAR(255) NOT NULL,
+        stored_name   VARCHAR(255) NOT NULL,
+        file_size     INT          NOT NULL,
+        mime_type     VARCHAR(100) NOT NULL,
+        uploaded_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id)     REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (uploaded_by) REFERENCES users(id),
+        INDEX idx_tka_task_id (task_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+// APP_DEBUG flag — set to true only in local development, never on production.
+if (!defined('APP_DEBUG')) {
+    define('APP_DEBUG', false);
+}
+
+// Helper function for debugging (output suppressed unless APP_DEBUG is true)
 function debug($data) {
+    if (!APP_DEBUG) {
+        return;
+    }
     echo "<pre>";
     print_r($data);
     echo "</pre>";
 }
 
-// Helper function for sanitizing input
+// Helper function for sanitizing input.
+// NOTE: htmlspecialchars() is intentionally NOT applied here.
+// Escaping must happen at the output/render layer (use htmlspecialchars() in views).
+// Applying it here causes double-encoding when the value is echoed through a view.
 function sanitizeInput($data) {
     $data = trim($data);
     $data = stripslashes($data);
-    $data = htmlspecialchars($data);
     return $data;
 }
 

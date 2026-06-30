@@ -32,7 +32,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Use IntersectionObserver for scroll-triggered counters
+    // Use IntersectionObserver for scroll-triggered counters.
+    // Threshold 0.1 (not 0.3) because counter elements sit inside animate-on-scroll
+    // wrappers that start at opacity:0 — some browsers skip intersection checks on
+    // children of invisible ancestors with a higher threshold.
     if ('IntersectionObserver' in window) {
         var counterObserver = new IntersectionObserver(function (entries) {
             entries.forEach(function (entry) {
@@ -41,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     counterObserver.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.3 });
+        }, { threshold: 0.1 });
 
         document.querySelectorAll('.counter-value').forEach(function (el) {
             counterObserver.observe(el);
@@ -49,6 +52,10 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
         animateCounters();
     }
+
+    // Fallback: fire after the fade-in animation (0.6s) completes so any counter
+    // whose observer was skipped due to opacity:0 ancestor still animates.
+    setTimeout(animateCounters, 700);
 
     // ═══════════════════════════════════════
     // 2. SCROLL-TRIGGERED FADE-IN ANIMATIONS
@@ -64,6 +71,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
 
         document.querySelectorAll('.animate-on-scroll').forEach(function (el) {
+            // Paginate wrappers must stay visible at all times — skip animation entirely
+            // so the opacity:0 / fade-in cycle never hides rows or pagination controls.
+            if (el.hasAttribute('data-paginate')) return;
             el.style.opacity = '0';
             animObserver.observe(el);
         });
@@ -80,9 +90,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!tbody) return;
 
         var allRows = Array.from(tbody.querySelectorAll('tr'));
-        if (allRows.length <= 5) return; // Don't paginate tiny tables
-
+        if (allRows.length === 0) return;
         var defaultPerPage = parseInt(wrapper.getAttribute('data-per-page')) || 10;
+
         var currentPage = 1;
         var perPage = defaultPerPage;
         var filteredRows = allRows.slice();
@@ -121,8 +131,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         function render() {
             var totalRows = filteredRows.length;
-            var totalPages = Math.ceil(totalRows / perPage);
-            if (currentPage > totalPages) currentPage = totalPages || 1;
+            var totalPages = Math.max(1, Math.ceil(totalRows / perPage));
+            if (currentPage > totalPages) currentPage = totalPages;
 
             var start = (currentPage - 1) * perPage;
             var end = Math.min(start + perPage, totalRows);
@@ -133,18 +143,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 filteredRows[i].style.display = '';
             }
 
-            // Info text
+            // Info text — always visible
             if (totalRows === 0) {
                 infoEl.textContent = 'No records found';
             } else {
                 infoEl.textContent = 'Showing ' + (start + 1) + '–' + end + ' of ' + totalRows + ' records';
             }
 
-            // Page buttons
+            // Page buttons — only render when more than one page
+            if (totalPages <= 1) {
+                controlsEl.innerHTML = '';
+                paginationDiv.style.display = totalRows === 0 ? 'none' : '';
+                return;
+            }
+
+            paginationDiv.style.display = '';
+
             var html = '';
             html += '<button class="page-btn" data-page="prev" ' + (currentPage === 1 ? 'disabled' : '') + '><i class="fas fa-chevron-left"></i></button>';
 
-            // Calculate visible page range
             var startPage = Math.max(1, currentPage - 2);
             var endPage = Math.min(totalPages, startPage + 4);
             if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
@@ -167,7 +184,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
             controlsEl.innerHTML = html;
 
-            // Bind click events
             controlsEl.querySelectorAll('.page-btn').forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     var page = this.getAttribute('data-page');
@@ -597,8 +613,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function getUsersByDeptPath() {
         var path = window.location.pathname;
         if (path.indexOf('/modules/meetings/') !== -1) return '../../controllers/GetUsersByDepartment.php';
-        if (path.indexOf('/modules/tasks/') !== -1) return '../controllers/GetUsersByDepartment.php';
-        return '/controllers/GetUsersByDepartment.php';
+        if (path.indexOf('/modules/tasks/') !== -1) return '../../controllers/GetUsersByDepartment.php';
+        return '../../controllers/GetUsersByDepartment.php';
     }
 
     function populateUsersForDepartment(department, selectEl, preselected) {
@@ -620,16 +636,13 @@ document.addEventListener('DOMContentLoaded', function () {
             }).catch(function () { /* ignore fetch errors */ });
     }
 
-    // Wire up department selects if present on page
-    ['department_select', 'modal_department_select'].forEach(function (id) {
-        var deptEl = document.getElementById(id);
-        if (!deptEl) return;
-        deptEl.addEventListener('change', function () {
-            var dept = this.value;
-            var targetId = id === 'modal_department_select' ? 'modal_assigned_to' : 'assigned_to_select';
-            var selectEl = document.getElementById(targetId);
-            populateUsersForDepartment(dept, selectEl, []);
+    // Wire up modal department select (used in meetings list quick-add task modal)
+    var modalDeptEl = document.getElementById('modal_department_select');
+    if (modalDeptEl) {
+        var modalAssigneeEl = document.getElementById('modal_assigned_to');
+        modalDeptEl.addEventListener('change', function () {
+            populateUsersForDepartment(this.value, modalAssigneeEl, []);
         });
-    });
+    }
 
 });

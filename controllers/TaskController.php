@@ -4,6 +4,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/upload_helper.php';
 
 function failTaskCreation(string $message, bool $isAjax): void
 {
@@ -66,6 +67,16 @@ $assignedTo = isset($assignedIds[0]) ? (int)$assignedIds[0] : 0;
 
 try {
     $conn = getDBConnection();
+
+    // Guard: tasks may only be created for Completed meetings
+    $mtgChk = $conn->prepare("SELECT status FROM meetings WHERE id = ? LIMIT 1");
+    $mtgChk->bind_param('i', $meetingId);
+    $mtgChk->execute();
+    $mtgRow = $mtgChk->get_result()->fetch_assoc();
+    if (!$mtgRow || strtolower($mtgRow['status']) !== 'completed') {
+        failTaskCreation('Tasks can only be created for Completed meetings.', $isAjax);
+    }
+
     $stmt = $conn->prepare(
         "INSERT INTO tasks (meeting_id, title, assigned_to, due_date, priority, notes) VALUES (?, ?, ?, ?, ?, ?)"
     );
@@ -93,6 +104,23 @@ try {
             $insStmt->bind_param('ii', $insertId, $uid);
             $insStmt->execute();
         }
+    }
+
+    // Handle optional task attachment
+    $uploadDir    = dirname(__DIR__) . '/uploads/tasks';
+    $uploadResult = validateAndStoreUpload('task_attachment', $uploadDir);
+    if ($uploadResult['success']) {
+        $upStmt = $conn->prepare(
+            "INSERT INTO task_attachments (task_id, uploaded_by, original_name, stored_name, file_size, mime_type)
+             VALUES (?, ?, ?, ?, ?, ?)"
+        );
+        $uploaderId = (int)$_SESSION['user_id'];
+        $upStmt->bind_param("iissss",
+            $insertId, $uploaderId,
+            $uploadResult['original_name'], $uploadResult['stored_name'],
+            $uploadResult['file_size'], $uploadResult['mime_type']
+        );
+        $upStmt->execute();
     }
 
     // If request is AJAX, return JSON

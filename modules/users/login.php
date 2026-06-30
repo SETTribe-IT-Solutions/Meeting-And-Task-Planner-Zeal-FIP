@@ -1209,9 +1209,6 @@ unset($_SESSION['error'], $_SESSION['success']);
                         </button>
                     </form>
 
-                    <div class="register-row">
-                        New official? <a href="register.php">Request Access / Register</a>
-                    </div>
                 </div>
             </div>
 

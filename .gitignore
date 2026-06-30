@@ -1,0 +1,28 @@
+# Local dev reference docs — never commit
+docs/test-users.html
+
+# Environment / config overrides
+.env
+config/local.php
+
+# PHP error logs
+*.log
+error_log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+
+# Uploaded files — keep folder structure (.htaccess) but ignore actual uploads
+uploads/meetings/*
+!uploads/meetings/.htaccess
+uploads/tasks/*
+!uploads/tasks/.htaccess
+
+# Database backups (contain data — never commit)
+database/*_backup.sql
+database/meeting_planner_backup.sql
