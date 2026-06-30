@@ -32,7 +32,7 @@
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <!-- Custom App JS (Pagination, Filters, Animations) -->
-    <script src="<?php echo defined('APP_URL') ? APP_URL : ''; ?>/assets/js/app.js"></script>
+    <script src="<?php echo defined('APP_URL') ? APP_URL : ''; ?>/assets/js/app.js?v=9"></script>
     
     <!-- Footer -->
     <footer class="footer">

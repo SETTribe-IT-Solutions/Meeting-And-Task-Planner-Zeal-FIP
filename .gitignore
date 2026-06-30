@@ -1,0 +1,21 @@
+# Local dev reference docs — never commit
+docs/test-users.html
+
+# Environment / config overrides
+.env
+config/local.php
+
+# PHP error logs
+*.log
+error_log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+
+# Uploaded files (if any)
+assets/uploads/
