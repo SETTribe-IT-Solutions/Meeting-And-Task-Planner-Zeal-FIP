@@ -15,8 +15,10 @@ $conn = getDBConnection();
 $meetingRes = $conn->query('SELECT id, title FROM meetings ORDER BY meeting_date DESC');
 $meetings = $meetingRes->fetch_all(MYSQLI_ASSOC);
 
-$userRes = $conn->query('SELECT id, name, email FROM users WHERE isDeleted = "No" ORDER BY name');
-$users = $userRes->fetch_all(MYSQLI_ASSOC);
+// Load all users for client-side department filtering (same approach as meeting create)
+$allUsersRes = $conn->query("SELECT id, name, email, department FROM users WHERE isDeleted = 'No' ORDER BY name ASC");
+$all_users = $allUsersRes ? $allUsersRes->fetch_all(MYSQLI_ASSOC) : [];
+
 $today = date('Y-m-d');
 $editTaskId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $task = null;
@@ -52,13 +54,18 @@ if ($prefillMeetingId > 0) {
     $mres = $mstmt->get_result()->fetch_assoc();
     if ($mres && !empty($mres['department'])) {
         $prefillDepartment = $mres['department'];
-        $ustmt = $conn->prepare('SELECT id, name, email FROM users WHERE department = ? AND isDeleted = "No" ORDER BY name');
-        $ustmt->bind_param('s', $prefillDepartment);
-        $ustmt->execute();
-        $prefillDeptUsers = $ustmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $prefillDeptUsers = array_values(array_filter($all_users, function($u) use ($prefillDepartment) {
+            return $u['department'] === $prefillDepartment;
+        }));
     }
 }
 ?>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
+<style>
+.ts-wrapper.multi .ts-control { min-height: 42px; border-radius: 0.5rem; }
+.ts-wrapper.multi .ts-control input { color: #212529; }
+.ts-dropdown .option { padding: 6px 10px; }
+</style>
 
 <div class="row justify-content-center animate-on-scroll">
     <div class="col-lg-8">
@@ -81,8 +88,10 @@ if ($prefillMeetingId > 0) {
                         <input type="hidden" name="task_id" value="<?php echo (int)$task['id']; ?>">
                     <?php endif; ?>
                     <div class="row g-3">
+
+                        <!-- Meeting Reference + Task Title -->
                         <div class="col-md-6">
-                            <label class="form-label">Select Meeting Reference</label>
+                            <label class="form-label fw-semibold">Meeting Reference <span class="text-danger">*</span></label>
                             <select name="meeting_id" class="form-select rounded-3" required>
                                 <option value="">Select meeting</option>
                                 <?php foreach ($meetings as $meeting): ?>
@@ -94,6 +103,8 @@ if ($prefillMeetingId > 0) {
                             <label class="form-label">Task Title</label>
                             <input type="text" name="title" class="form-control rounded-3" required placeholder="e.g., Prepare financial report" value="<?php echo $task ? htmlspecialchars($task['title']) : ''; ?>">
                         </div>
+
+                        <!-- Due Date + Priority -->
                         <div class="col-md-6">
                             <label class="form-label">Department</label>
                             <select name="department" id="department_select" class="form-select rounded-3" required>
@@ -122,8 +133,8 @@ if ($prefillMeetingId > 0) {
                             <label class="form-label">Due Date</label>
                             <input type="date" name="due_date" id="due_date" class="form-control rounded-3" required min="<?php echo htmlspecialchars($today); ?>" data-past-date-message="Past dates are not allowed. Please select today or a future date." value="<?php echo $task ? htmlspecialchars($task['due_date']) : ''; ?>">
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Priority Level</label>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Priority Level <span class="text-danger">*</span></label>
                             <select name="priority" class="form-select rounded-3" required>
                                 <option value="">Select priority</option>
                                 <option value="Low" <?php echo ($task && $task['priority'] === 'Low') ? 'selected' : ''; ?>>Low</option>
@@ -131,14 +142,43 @@ if ($prefillMeetingId > 0) {
                                 <option value="High" <?php echo ($task && $task['priority'] === 'High') ? 'selected' : ''; ?>>High</option>
                             </select>
                         </div>
+
+                        <!-- Department -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Department <span class="text-danger">*</span></label>
+                            <select name="department" id="department_select" class="form-select rounded-3" required>
+                                <option value="">Select department</option>
+                                <?php
+                                $deptRes = $conn->query('SELECT id, name FROM departments WHERE is_active = "Yes" ORDER BY name');
+                                $depts = $deptRes ? $deptRes->fetch_all(MYSQLI_ASSOC) : [];
+                                foreach ($depts as $d):
+                                ?>
+                                    <option value="<?php echo htmlspecialchars($d['name']); ?>" <?php echo ($prefillDepartment === $d['name']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($d['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <!-- Assign To — searchable checkbox multi-select (Tom Select) -->
                         <div class="col-12">
                             <label class="form-label">Additional Notes / Instructions</label>
                             <textarea name="notes" class="form-control rounded-3" rows="3" placeholder="Provide context or specific instructions for this task..."><?php echo $task ? htmlspecialchars($task['notes']) : ''; ?></textarea>
                         </div>
+
+                        <!-- Attachment (optional) -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-paperclip text-secondary me-1"></i>Attach File
+                                <span class="text-muted fw-normal small">(optional)</span>
+                            </label>
+                            <input type="file" name="task_attachment" class="form-control rounded-3"
+                                   accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg">
+                            <div class="form-text">Allowed: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, PNG, JPG, JPEG &mdash; Max 10 MB</div>
+                        </div>
+
                     </div>
                     <div class="mt-4 d-flex gap-2">
                         <button type="submit" class="btn btn-primary rounded-3 px-4"><i class="fas fa-save me-1"></i> Save Task</button>
-                        <a href="../../index.php" class="btn btn-outline-secondary rounded-3">Cancel</a>
+                        <a href="index.php" class="btn btn-outline-secondary rounded-3">Cancel</a>
                     </div>
                 </form>
             </div>

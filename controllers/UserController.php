@@ -5,8 +5,8 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/../config/db.php';
 
-if (!isLoggedIn() || !isOrganizer()) {
-    $_SESSION['error'] = 'Only organizers and collectors can manage users.';
+if (!isLoggedIn() || $_SESSION['role'] !== 'Organizer') {
+    $_SESSION['error'] = 'Only Organizers can manage users.';
     header('Location: ../index.php');
     exit();
 }
@@ -57,18 +57,19 @@ if ($name === '') {
     $errors[] = 'User name can contain only letters, spaces, dots, apostrophes, and hyphens.';
 }
 
-if ($department === '') {
-    $errors[] = 'Department is required.';
-} elseif (!in_array($department, getDepartments(), true)) {
-    $errors[] = 'Please select a valid department.';
-}
+$action = $_POST['action'] ?? 'create';
+$conn   = getDBConnection();
 
-if ($email === '') {
-    $errors[] = 'Email ID is required.';
-} elseif (mb_strlen($email) > 150) {
-    $errors[] = 'Email ID must not exceed 150 characters.';
-} elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    $errors[] = 'Please enter a valid Email ID.';
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function validatePassword(string $password): ?string {
+    if (strlen($password) < 8 || strlen($password) > 64) {
+        return 'Password must be between 8 and 64 characters.';
+    }
+    if (!preg_match('/[A-Z]/', $password) || !preg_match('/[a-z]/', $password) || !preg_match('/[0-9]/', $password)) {
+        return 'Password must include uppercase, lowercase, and a number.';
+    }
+    return null;
 }
 
 if ($action === 'create' || !empty($password)) {
@@ -87,8 +88,43 @@ if (!empty($errors)) {
     exit();
 }
 
-try {
-    $conn = getDBConnection();
+// ── CREATE ────────────────────────────────────────────────────────────────────
+if ($action === 'create') {
+    $name       = trim($_POST['name'] ?? '');
+    $department = trim($_POST['department'] ?? '');
+    $email      = trim($_POST['email'] ?? '');
+    $password   = $_POST['password'] ?? '';
+    $role       = trim($_POST['role'] ?? 'Employee');
+    $errors     = [];
+
+    $_SESSION['user_form_old'] = compact('name', 'department', 'email', 'role');
+
+    if ($name === '' || mb_strlen($name) < 3 || mb_strlen($name) > 100) {
+        $errors[] = 'User name must be 3–100 characters.';
+    } elseif (!preg_match("/^[A-Za-z\s.'\-]+$/", $name)) {
+        $errors[] = 'User name can only contain letters, spaces, dots, apostrophes, and hyphens.';
+    }
+
+    if ($department === '' || !in_array($department, getDepartments(), true)) {
+        $errors[] = 'Please select a valid department.';
+    }
+
+    if (!in_array($role, ['Employee', 'Organizer'], true)) {
+        $errors[] = 'Please select a valid role.';
+    }
+
+    if ($email === '' || mb_strlen($email) > 150 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = 'Please enter a valid Email ID (max 150 chars).';
+    }
+
+    $pwErr = validatePassword($password);
+    if ($pwErr) $errors[] = $pwErr;
+
+    if (!empty($errors)) {
+        $_SESSION['user_form_errors'] = $errors;
+        header('Location: ../modules/users/index.php');
+        exit();
+    }
 
     if ($action === 'update' && $userId > 0) {
         $stmt = $conn->prepare("SELECT id FROM users WHERE email = ? AND isDeleted = 'No' AND id != ? LIMIT 1");
@@ -135,5 +171,6 @@ try {
     $_SESSION['user_form_errors'] = ['Unable to process request right now.'];
 }
 
+// fallback
 header('Location: ../modules/users/index.php');
 exit();

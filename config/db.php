@@ -17,9 +17,31 @@ if (!defined('DB_NAME')) {
 
 // Calculate project base URL for routing
 if (!defined('APP_URL')) {
-    $docRoot = str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT'] ?? '');
-    $currentDir = str_replace('\\', '/', dirname(__DIR__));
-    define('APP_URL', rtrim(str_replace($docRoot, '', $currentDir), '/'));
+    $docRoot    = rtrim(str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
+    $currentDir = rtrim(str_replace('\\', '/', dirname(__DIR__)), '/');
+    $computed   = rtrim(str_replace($docRoot, '', $currentDir), '/');
+
+    // Fallback for Windows junctions/symlinks where PHP resolves __DIR__ to the
+    // real path (different drive) while DOCUMENT_ROOT stays on the virtual drive.
+    if ($docRoot === '' || preg_match('/^[A-Za-z]:/', ltrim($computed, '/'))) {
+        $scriptVirtual = rtrim(str_replace('\\', '/', $_SERVER['SCRIPT_FILENAME'] ?? ''), '/');
+        $scriptReal    = rtrim(str_replace('\\', '/', realpath($scriptVirtual) ?: $scriptVirtual), '/');
+        $scriptRealDir = dirname($scriptReal);
+
+        // How many directory levels deep is the script within the app root?
+        $relPath = '';
+        if ($currentDir !== '' && stripos($scriptRealDir, $currentDir) === 0) {
+            $relPath = ltrim(substr($scriptRealDir, strlen($currentDir)), '/');
+        }
+        $depth = ($relPath !== '') ? count(explode('/', $relPath)) : 0;
+
+        // Walk up `depth` levels from the virtual script directory
+        $parts    = explode('/', rtrim(dirname($scriptVirtual), '/'));
+        $appParts = array_slice($parts, 0, count($parts) - $depth);
+        $computed = rtrim(str_replace($docRoot, '', implode('/', $appParts)), '/');
+    }
+
+    define('APP_URL', $computed);
 }
 
 // Helper function to execute SQL statements from a file

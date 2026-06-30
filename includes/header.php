@@ -23,15 +23,13 @@ if ($isLoggedIn) {
         $userDepartment = $_SESSION['department'] ?? '';
         $nowTime = date('H:i:s');
 
-        if ($userRole === 'Collector') {
+        if ($userRole === 'Collector' || $userRole === 'Organizer') {
+            // Both see all tasks — Organizer is super admin
             $stmt = $headerConn->prepare("SELECT COUNT(*) AS total FROM tasks WHERE due_date = ? AND status <> 'Completed'");
             $stmt->bind_param('s', $today);
-        } elseif ($userRole === 'Organizer') {
-            $stmt = $headerConn->prepare("SELECT COUNT(*) AS total FROM tasks t JOIN meetings m ON t.meeting_id = m.id WHERE m.organizer_id = ? AND t.due_date = ? AND t.status <> 'Completed'");
-            $stmt->bind_param('is', $userId, $today);
         } else {
-            $stmt = $headerConn->prepare("SELECT COUNT(*) AS total FROM tasks WHERE assigned_to = ? AND due_date = ? AND status <> 'Completed'");
-            $stmt->bind_param('is', $userId, $today);
+            $stmt = $headerConn->prepare("SELECT COUNT(*) AS total FROM tasks t WHERE t.due_date = ? AND t.status <> 'Completed' AND EXISTS (SELECT 1 FROM task_assignments ta WHERE ta.task_id = t.id AND ta.user_id = ?)");
+            $stmt->bind_param('si', $today, $userId);
         }
 
         if ($stmt) {
@@ -47,12 +45,10 @@ if ($isLoggedIn) {
             }
         }
 
-        if ($userRole === 'Collector') {
+        if ($userRole === 'Collector' || $userRole === 'Organizer') {
+            // Both see all meetings
             $stmt = $headerConn->prepare("SELECT COUNT(*) AS total FROM meetings WHERE meeting_date = ? AND status <> 'Cancelled'");
             $stmt->bind_param('s', $today);
-        } elseif ($userRole === 'Organizer') {
-            $stmt = $headerConn->prepare("SELECT COUNT(*) AS total FROM meetings WHERE organizer_id = ? AND meeting_date = ? AND status <> 'Cancelled'");
-            $stmt->bind_param('is', $userId, $today);
         } else {
             $stmt = $headerConn->prepare("SELECT COUNT(DISTINCT m.id) AS total FROM meetings m LEFT JOIN attendance a ON a.meeting_id = m.id WHERE (m.department = ? OR a.user_id = ?) AND m.meeting_date = ? AND m.status <> 'Cancelled'");
             $stmt->bind_param('sis', $userDepartment, $userId, $today);
@@ -70,12 +66,10 @@ if ($isLoggedIn) {
             }
         }
 
-        if ($userRole === 'Collector') {
+        if ($userRole === 'Collector' || $userRole === 'Organizer') {
+            // Both see next meeting from all meetings
             $stmt = $headerConn->prepare("SELECT id, title, meeting_date, meeting_time FROM meetings WHERE status <> 'Cancelled' AND (meeting_date > ? OR (meeting_date = ? AND meeting_time >= ?)) ORDER BY meeting_date ASC, meeting_time ASC LIMIT 1");
             $stmt->bind_param('sss', $today, $today, $nowTime);
-        } elseif ($userRole === 'Organizer') {
-            $stmt = $headerConn->prepare("SELECT id, title, meeting_date, meeting_time FROM meetings WHERE organizer_id = ? AND status <> 'Cancelled' AND (meeting_date > ? OR (meeting_date = ? AND meeting_time >= ?)) ORDER BY meeting_date ASC, meeting_time ASC LIMIT 1");
-            $stmt->bind_param('isss', $userId, $today, $today, $nowTime);
         } else {
             $stmt = $headerConn->prepare("SELECT DISTINCT m.id, m.title, m.meeting_date, m.meeting_time FROM meetings m LEFT JOIN attendance a ON a.meeting_id = m.id WHERE (m.department = ? OR a.user_id = ?) AND m.status <> 'Cancelled' AND (m.meeting_date > ? OR (m.meeting_date = ? AND m.meeting_time >= ?)) ORDER BY m.meeting_date ASC, m.meeting_time ASC LIMIT 1");
             $stmt->bind_param('sisss', $userDepartment, $userId, $today, $today, $nowTime);
@@ -617,7 +611,7 @@ if ($isLoggedIn) {
       </div>
       <ul class="nav-menu">
         <li class="nav-item">
-          <a href="<?php echo $basePath; ?>/index.php" class="nav-link <?php echo basename($currentPath) == 'index.php' ? 'active' : ''; ?>" <?php echo basename($currentPath) == 'index.php' ? 'aria-current="page"' : ''; ?>>
+          <a href="<?php echo $basePath; ?>/index.php" class="nav-link <?php echo (basename($currentPath) == 'index.php' && strpos($currentPath, '/modules/') === false) ? 'active' : ''; ?>" <?php echo (basename($currentPath) == 'index.php' && strpos($currentPath, '/modules/') === false) ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-tachometer-alt"></i>
             <span>Dashboard</span>
           </a>
@@ -661,16 +655,7 @@ if ($isLoggedIn) {
         </li>
         <?php endif; ?>
       </ul>
-      <div class="sidebar-footer">
-        <div style="display: flex; align-items: center; gap: 6px; padding: 0 0.5rem;">
-          <i class="fas fa-clock"></i>
-          <span>Next meeting: <?php echo htmlspecialchars($nextMeetingText); ?></span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 6px; padding: 0 0.5rem;">
-          <i class="fas fa-check-circle" style="color: #16a34a;"></i>
-          <span><?php echo htmlspecialchars($tasksDueTodayText); ?></span>
-        </div>
-      </div>
+      <div class="sidebar-footer"></div>
     </aside>
     <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
     <?php endif; ?>

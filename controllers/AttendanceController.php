@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($result->num_rows > 0) {
                 $_SESSION['error'] = 'User is already invited to this meeting.';
             } else {
-                $stmt = $conn->prepare("INSERT INTO attendance (meeting_id, user_id, status) VALUES (?, ?, 'Pending')");
+                $stmt = $conn->prepare("INSERT INTO attendance (meeting_id, user_id, status) VALUES (?, ?, 'Not Updated')");
                 $stmt->bind_param("ii", $meetingId, $userId);
                 if ($stmt->execute()) {
                     $_SESSION['success'] = 'Attendee added successfully.';

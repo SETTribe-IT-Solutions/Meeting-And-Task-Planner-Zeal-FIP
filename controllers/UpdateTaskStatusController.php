@@ -86,7 +86,12 @@ try {
     if ($stmt->affected_rows > 0) {
         $_SESSION['success'] = "Task marked as $status.";
     } else {
-        $_SESSION['error'] = "Task not found or status already set to $status.";
+        // Touch updated_at even if status unchanged but notes were added
+        if ($progressNotes !== '') {
+            $_SESSION['success'] = "Progress notes saved.";
+        } else {
+            $_SESSION['error'] = "Task not found or status already set to $status.";
+        }
     }
 
     redirect('../modules/tasks/index.php');

@@ -191,10 +191,10 @@ class RegisterController {
 
             // Insert new user
             $stmt = $conn->prepare(
-                "INSERT INTO users (name, email, password, role, department, isDeleted) 
-                 VALUES (?, ?, ?, ?, ?, 'No')"
+                "INSERT INTO users (name, email, password, role, department, phone, gender, designation, taluka, isDeleted)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'No')"
             );
-            $stmt->bind_param("sssss", $name, $email, $hashedPassword, $role, $department);
+            $stmt->bind_param("sssssssss", $name, $email, $hashedPassword, $role, $department, $phone, $gender, $designation, $taluka);
             $stmt->execute();
 
             if ($stmt->affected_rows > 0) {

@@ -13,19 +13,27 @@ include_once '../../includes/header.php';
 
 $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
 $conn = getDBConnection();
-$result = $conn->query(
-    "SELECT m.id, m.title, m.meeting_date, m.meeting_time, m.location, m.mode, m.department, m.status, u.id AS organizer_id, u.name AS organizer_name
-     FROM meetings m
-     JOIN users u ON m.organizer_id = u.id
-     ORDER BY m.meeting_date DESC, m.meeting_time DESC"
-);
+$user_id = $_SESSION['user_id'];
+$role    = $_SESSION['role'];
+$userDepartment = $_SESSION['department'] ?? '';
 
-if ($result) {
-    $meetings = $result->fetch_all(MYSQLI_ASSOC);
-} else {
-    error_log('Meetings query failed: ' . $conn->error);
-    $meetings = [];
+$sql = "SELECT m.id, m.title, m.meeting_date, m.meeting_time, m.location, m.mode, m.department, m.status, u.id AS organizer_id, u.name AS organizer_name
+        FROM meetings m
+        JOIN users u ON m.organizer_id = u.id";
+
+if ($role === 'Employee') {
+    $sql .= " WHERE (m.department = ? OR EXISTS (SELECT 1 FROM attendance a WHERE a.meeting_id = m.id AND a.user_id = ?))";
 }
+
+$sql .= " ORDER BY m.meeting_date DESC, m.meeting_time DESC";
+
+$stmt = $conn->prepare($sql);
+if ($role === 'Employee') {
+    $stmt->bind_param('si', $userDepartment, $user_id);
+}
+$stmt->execute();
+$result  = $stmt->get_result();
+$meetings = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 
 // Count stats
 $totalMeetings = count($meetings);
@@ -45,42 +53,51 @@ $today = date('Y-m-d');
                     <h3 class="fw-bold mb-1" style="color: var(--gov-blue);">Meeting List</h3>
                     <p class="text-muted mb-0">Official meetings scheduled for departments and teams.</p>
                 </div>
-                <div class="d-flex gap-2 align-items-center">
-                    <span class="badge bg-light text-dark border px-3 py-2"><?php echo $totalMeetings; ?> Total</span>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <div class="meeting-info-badge">
+                        <i class="fas fa-clock text-primary me-1"></i>
+                        <span><strong>Next:</strong> <?php echo htmlspecialchars($nextMeetingText ?? 'No upcoming meetings'); ?></span>
+                    </div>
+                    <div class="meeting-info-badge">
+                        <i class="fas fa-check-circle text-success me-1"></i>
+                        <span><?php echo htmlspecialchars($tasksDueTodayText ?? '0 tasks due today'); ?></span>
+                    </div>
+                    <?php if ($role === 'Organizer'): ?>
                     <a href="create.php" class="btn btn-primary rounded-3"><i class="fas fa-plus-circle me-1"></i> Schedule Meeting</a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
 
-        <!-- Stats -->
+        <!-- Stats (click to filter) -->
         <div class="row g-3 mb-4">
             <div class="col-md-3 animate-on-scroll">
-                <div class="card stat-card stat-primary border-0 p-3">
+                <div class="card stat-card stat-primary border-0 p-3 stat-filter-card" data-filter="all" role="button" title="Show all meetings">
                     <div class="stat-label">TOTAL</div>
-                    <div class="stat-value counter-value" data-target="<?php echo $totalMeetings; ?>" style="font-size:1.5rem;">0</div>
+                    <div class="stat-value" style="font-size:1.5rem;"><?php echo $totalMeetings; ?></div>
                 </div>
             </div>
             <div class="col-md-3 animate-on-scroll">
-                <div class="card stat-card stat-warning border-0 p-3">
+                <div class="card stat-card stat-warning border-0 p-3 stat-filter-card" data-filter="scheduled" role="button" title="Show scheduled meetings">
                     <div class="stat-label">SCHEDULED</div>
-                    <div class="stat-value counter-value" data-target="<?php echo $scheduledCount; ?>" style="font-size:1.5rem;">0</div>
+                    <div class="stat-value" style="font-size:1.5rem;"><?php echo $scheduledCount; ?></div>
                 </div>
             </div>
             <div class="col-md-3 animate-on-scroll">
-                <div class="card stat-card stat-success border-0 p-3">
+                <div class="card stat-card stat-success border-0 p-3 stat-filter-card" data-filter="completed" role="button" title="Show completed meetings">
                     <div class="stat-label">COMPLETED</div>
-                    <div class="stat-value counter-value" data-target="<?php echo $completedCount; ?>" style="font-size:1.5rem;">0</div>
+                    <div class="stat-value" style="font-size:1.5rem;"><?php echo $completedCount; ?></div>
                 </div>
             </div>
             <div class="col-md-3 animate-on-scroll">
-                <div class="card stat-card stat-danger border-0 p-3">
+                <div class="card stat-card stat-danger border-0 p-3 stat-filter-card" data-filter="cancelled" role="button" title="Show cancelled meetings">
                     <div class="stat-label">CANCELLED</div>
-                    <div class="stat-value counter-value" data-target="<?php echo $cancelledCount; ?>" style="font-size:1.5rem;">0</div>
+                    <div class="stat-value" style="font-size:1.5rem;"><?php echo $cancelledCount; ?></div>
                 </div>
             </div>
         </div>
 
-        <div class="card p-4 border-0 shadow-sm animate-on-scroll" id="meetingsTableWrapper" data-paginate data-per-page="10">
+        <div class="card p-4 border-0 shadow-sm" id="meetingsTableWrapper" data-paginate data-per-page="10">
             <!-- Table Search -->
             <div class="table-filter-bar">
                 <div class="table-search-input">
@@ -105,7 +122,7 @@ $today = date('Y-m-d');
                     </thead>
                     <tbody>
                         <?php foreach ($meetings as $meeting): ?>
-                            <tr style="cursor: pointer;" onclick="window.location='view.php?id=<?php echo $meeting['id']; ?>'">
+                            <tr style="cursor: pointer;" data-row-status="<?php echo strtolower(htmlspecialchars($meeting['status'])); ?>" onclick="window.location='view.php?id=<?php echo $meeting['id']; ?>'">
                                 <td>
                                     <strong><?php echo htmlspecialchars($meeting['title']); ?></strong><br>
                                     <small class="text-muted"><i class="fas fa-map-marker-alt me-1"></i><?php echo htmlspecialchars($meeting['location']); ?></small>
@@ -169,6 +186,150 @@ $today = date('Y-m-d');
 
 <?php include_once '../../includes/footer.php'; ?>
 
+<!-- Cancel Meeting Modal -->
+<div class="modal fade" id="cancelMeetingModal" tabindex="-1" aria-labelledby="cancelMeetingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white border-0" style="background: linear-gradient(135deg, #c0392b, #e74c3c);">
+                <h5 class="modal-title fw-bold" id="cancelMeetingModalLabel">
+                    <i class="fas fa-calendar-times me-2"></i>Cancel Meeting
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="../../controllers/MeetingCancelController.php" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                <input type="hidden" name="meeting_id" id="cancelMeetingId">
+                <div class="modal-body py-4">
+                    <p class="mb-1">You are about to cancel:</p>
+                    <p class="fw-bold fs-6 text-dark mb-1" id="cancelMeetingTitle"></p>
+                    <p class="text-muted small mb-3">Scheduled for <span id="cancelMeetingDate" class="fw-semibold text-dark"></span></p>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Reason / Remark <span class="text-muted fw-normal">(optional)</span></label>
+                        <textarea name="cancel_reason" class="form-control rounded-3" rows="3" placeholder="Enter reason for cancellation..."></textarea>
+                    </div>
+                    <div class="alert alert-warning rounded-3 mb-0 py-2 small">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        This will mark the meeting as <strong>Cancelled</strong>. This action cannot be undone.
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary rounded-3" data-bs-dismiss="modal">
+                        <i class="fas fa-arrow-left me-1"></i> Keep Meeting
+                    </button>
+                    <button type="submit" class="btn btn-danger rounded-3 px-4">
+                        <i class="fas fa-calendar-times me-1"></i> Yes, Cancel Meeting
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Mark as Completed Modal -->
+<div class="modal fade" id="completeMeetingModal" tabindex="-1" aria-labelledby="completeMeetingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white border-0" style="background: linear-gradient(135deg, #16a34a, #22c55e);">
+                <h5 class="modal-title fw-bold" id="completeMeetingModalLabel">
+                    <i class="fas fa-check-circle me-2"></i>Mark as Completed
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="../../controllers/MeetingCompleteController.php" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                <input type="hidden" name="meeting_id" id="completeMeetingId">
+                <div class="modal-body py-4">
+                    <p class="mb-1">Mark as completed:</p>
+                    <p class="fw-bold fs-6 text-dark mb-3" id="completeMeetingTitle"></p>
+                    <div class="alert alert-success rounded-3 mb-0 py-2 small">
+                        <i class="fas fa-info-circle me-1"></i>
+                        This will mark the meeting as <strong>Completed</strong> and unlock task assignment.
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary rounded-3" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Go Back
+                    </button>
+                    <button type="submit" class="btn btn-success rounded-3 px-4">
+                        <i class="fas fa-check-circle me-1"></i> Yes, Mark Completed
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-filter-card { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+.stat-filter-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.12) !important; }
+.stat-filter-card.stat-active { outline: 3px solid rgba(0,0,0,0.25); outline-offset: 2px; transform: translateY(-2px); }
+.meeting-info-badge {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 30px;
+    padding: 0.45rem 1rem;
+    font-size: 0.82rem;
+    color: #334155;
+    font-weight: 500;
+    white-space: nowrap;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+</style>
+<script>
+function openCancelModal(btn) {
+    document.getElementById('cancelMeetingId').value    = btn.dataset.meetingId;
+    document.getElementById('cancelMeetingTitle').textContent = btn.dataset.meetingTitle;
+    document.getElementById('cancelMeetingDate').textContent  = btn.dataset.meetingDate;
+    // Clear reason field on each open
+    var ta = document.querySelector('#cancelMeetingModal textarea[name="cancel_reason"]');
+    if (ta) ta.value = '';
+    new bootstrap.Modal(document.getElementById('cancelMeetingModal')).show();
+}
+
+function openCompleteModal(btn) {
+    document.getElementById('completeMeetingId').value = btn.dataset.meetingId;
+    document.getElementById('completeMeetingTitle').textContent = btn.dataset.meetingTitle;
+    new bootstrap.Modal(document.getElementById('completeMeetingModal')).show();
+}
+
+// Stat card click-to-filter
+document.addEventListener('DOMContentLoaded', function () {
+    var wrapper  = document.getElementById('meetingsTableWrapper');
+    var countEl  = wrapper ? wrapper.querySelector('.table-result-count') : null;
+    var searchEl = wrapper ? wrapper.querySelector('[data-table-search]') : null;
+
+    document.querySelectorAll('.stat-filter-card').forEach(function (card) {
+        card.addEventListener('click', function () {
+            var filter = this.dataset.filter;
+
+            // Wait a tick to ensure app.js pagination has initialised
+            setTimeout(function () {
+                var allRows = wrapper._paginateAllRows || Array.from(wrapper.querySelectorAll('tbody tr'));
+                var matched = (filter === 'all')
+                    ? allRows
+                    : allRows.filter(function (row) { return (row.dataset.rowStatus || '') === filter; });
+
+                if (wrapper._paginateSetFiltered) {
+                    wrapper._paginateSetFiltered(matched);
+                } else {
+                    allRows.forEach(function (r) { r.style.display = 'none'; });
+                    matched.forEach(function (r) { r.style.display = ''; });
+                }
+
+                if (countEl) countEl.textContent = matched.length + ' record' + (matched.length !== 1 ? 's' : '');
+                if (searchEl) searchEl.value = '';
+
+                // Active visual
+                document.querySelectorAll('.stat-filter-card').forEach(function (c) { c.classList.remove('stat-active'); });
+                card.classList.add('stat-active');
+            }, 0);
+        });
+    });
+});
+</script>
+
 <!-- Add Task Modal -->
 <div class="modal fade" id="addTaskModal" tabindex="-1" aria-labelledby="addTaskModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -178,6 +339,7 @@ $today = date('Y-m-d');
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="../../controllers/TaskController.php" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
                 <div class="modal-body">
                     <div class="row g-3">
                         <div class="col-md-6">

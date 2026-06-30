@@ -25,10 +25,8 @@ $searchQuery = isset($_GET['search']) ? sanitizeInput($_GET['search']) : '';
 if ($role === 'Employee') {
     $stmt = $conn->prepare("SELECT status, COUNT(*) as count FROM attendance WHERE user_id = ? GROUP BY status");
     $stmt->bind_param("i", $user_id);
-} elseif ($role === 'Organizer') {
-    $stmt = $conn->prepare("SELECT a.status, COUNT(*) as count FROM attendance a JOIN meetings m ON a.meeting_id = m.id WHERE m.organizer_id = ? GROUP BY a.status");
-    $stmt->bind_param("i", $user_id);
 } else {
+    // Collector and Organizer (super admin) both see all attendance
     $stmt = $conn->prepare("SELECT status, COUNT(*) as count FROM attendance GROUP BY status");
 }
 $stmt->execute();
@@ -37,7 +35,9 @@ $countsResult = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $statusCounts = ['Present' => 0, 'Absent' => 0, 'Pending' => 0, 'Late' => 0];
 $total = 0;
 foreach ($countsResult as $row) {
-    $statusCounts[$row['status']] = (int)$row['count'];
+    if (isset($statusCounts[$row['status']])) {
+        $statusCounts[$row['status']] = (int)$row['count'];
+    }
     $total += (int)$row['count'];
 }
 
@@ -50,13 +50,9 @@ if ($total > 0) {
 }
 
 // 2. Load meetings for dropdown filter
-if ($role === 'Collector') {
+if ($role === 'Collector' || $role === 'Organizer') {
+    // Both see all meetings
     $meetingsRes = $conn->query("SELECT id, title FROM meetings ORDER BY meeting_date DESC");
-} elseif ($role === 'Organizer') {
-    $stmt = $conn->prepare("SELECT id, title FROM meetings WHERE organizer_id = ? ORDER BY meeting_date DESC");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $meetingsRes = $stmt->get_result();
 } else {
     $stmt = $conn->prepare("SELECT DISTINCT m.id, m.title FROM meetings m JOIN attendance a ON m.id = a.meeting_id WHERE a.user_id = ? ORDER BY m.meeting_date DESC");
     $stmt->bind_param("i", $user_id);
@@ -147,42 +143,33 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
         <!-- Attendance Stats Cards -->
         <div class="row g-4 mb-4">
-            <div class="col-md-4 animate-on-scroll">
+            <div class="col-md-3 animate-on-scroll">
                 <div class="card stat-card stat-success border-0 p-4">
-                    <i class="fas fa-user-check stat-icon"></i>
-                    <div class="stat-label mb-1">PRESENT RATE</div>
-                    <div class="d-flex align-items-end gap-1">
-                        <div class="stat-value counter-value" data-target="<?php echo $ratios['present']; ?>" style="font-size:2rem;">0</div>
-                        <span style="font-size:1.2rem;font-weight:700;opacity:0.9;">%</span>
-                    </div>
+                    <i class="fas fa-check-circle stat-icon"></i>
+                    <div class="stat-label mb-1">PRESENT</div>
+                    <div class="stat-value counter-value" data-target="<?php echo $statusCounts['Present']; ?>" style="font-size:2rem;">0</div>
                     <div class="progress mt-3" style="height: 6px; background: rgba(255,255,255,0.2);">
                         <div class="progress-bar bg-white" style="width: <?php echo $ratios['present']; ?>%"></div>
                     </div>
-                    <div class="stat-trend mt-2"><i class="fas fa-users me-1"></i> <?php echo $statusCounts['Present']; ?> present</div>
+                    <div class="stat-trend mt-2"><i class="fas fa-percent me-1"></i> <?php echo $ratios['present']; ?>% of total</div>
                 </div>
             </div>
-            <div class="col-md-4 animate-on-scroll">
+            <div class="col-md-3 animate-on-scroll">
                 <div class="card stat-card stat-warning border-0 p-4">
-                    <i class="fas fa-hourglass-half stat-icon"></i>
-                    <div class="stat-label mb-1">PENDING RSVP</div>
-                    <div class="d-flex align-items-end gap-1">
-                        <div class="stat-value counter-value" data-target="<?php echo $ratios['pending']; ?>" style="font-size:2rem;">0</div>
-                        <span style="font-size:1.2rem;font-weight:700;opacity:0.9;">%</span>
-                    </div>
+                    <i class="fas fa-clock stat-icon"></i>
+                    <div class="stat-label mb-1">PRESENT WITH LATE</div>
+                    <div class="stat-value counter-value" data-target="<?php echo $statusCounts['Present with Late']; ?>" style="font-size:2rem;">0</div>
                     <div class="progress mt-3" style="height: 6px; background: rgba(0,0,0,0.1);">
-                        <div class="progress-bar bg-dark" style="width: <?php echo $ratios['pending']; ?>%"></div>
+                        <div class="progress-bar bg-dark" style="width: <?php echo $ratios['present_late']; ?>%"></div>
                     </div>
-                    <div class="stat-trend mt-2"><i class="fas fa-clock me-1"></i> <?php echo $statusCounts['Pending']; ?> pending</div>
+                    <div class="stat-trend mt-2"><i class="fas fa-percent me-1"></i> <?php echo $ratios['present_late']; ?>% of total</div>
                 </div>
             </div>
-            <div class="col-md-4 animate-on-scroll">
+            <div class="col-md-3 animate-on-scroll">
                 <div class="card stat-card stat-danger border-0 p-4">
-                    <i class="fas fa-user-times stat-icon"></i>
-                    <div class="stat-label mb-1">ABSENT RATE</div>
-                    <div class="d-flex align-items-end gap-1">
-                        <div class="stat-value counter-value" data-target="<?php echo $ratios['absent']; ?>" style="font-size:2rem;">0</div>
-                        <span style="font-size:1.2rem;font-weight:700;opacity:0.9;">%</span>
-                    </div>
+                    <i class="fas fa-times-circle stat-icon"></i>
+                    <div class="stat-label mb-1">ABSENT</div>
+                    <div class="stat-value counter-value" data-target="<?php echo $statusCounts['Absent']; ?>" style="font-size:2rem;">0</div>
                     <div class="progress mt-3" style="height: 6px; background: rgba(255,255,255,0.2);">
                         <div class="progress-bar bg-white" style="width: <?php echo $ratios['absent']; ?>%"></div>
                     </div>
@@ -274,8 +261,23 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                             'Pending' => 'badge-status-scheduled',
                                             default => 'bg-secondary'
                                         };
+                                        $attStatuses = [
+                                            'Present'           => ['icon' => 'fa-check-circle',    'cls' => 'text-success',   'label' => 'Present'],
+                                            'Present with Late' => ['icon' => 'fa-clock',           'cls' => 'text-warning',   'label' => 'Present with Late'],
+                                            'Absent'            => ['icon' => 'fa-times-circle',    'cls' => 'text-danger',    'label' => 'Absent'],
+                                            'Not Updated'       => ['icon' => 'fa-question-circle', 'cls' => 'text-secondary', 'label' => 'Not Updated'],
+                                        ];
                                         ?>
-                                        <span class="badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($status); ?></span>
+                                        <span class="badge <?php echo $statusConf['badge']; ?>">
+                                            <i class="fas <?php echo $statusConf['icon']; ?> me-1"></i><?php echo htmlspecialchars($status); ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($record['arrival_time'])): ?>
+                                            <small class="text-success fw-semibold"><i class="fas fa-clock me-1"></i><?php echo htmlspecialchars(formatTime12Hour($record['arrival_time'])); ?></small>
+                                        <?php else: ?>
+                                            <span class="text-muted small">—</span>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
                                         <span class="text-muted small"><?php echo !empty($record['check_in_time']) ? formatTime12Hour($record['check_in_time']) : '—'; ?></span>
@@ -304,9 +306,35 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                                         onclick="promptRemarks(this, '<?php echo htmlspecialchars(addslashes($record['remarks'] ?? '')); ?>')">
                                                     <i class="fas fa-comment"></i>
                                                 </button>
+                                            </form>
+                                            <!-- Edit Arrival Time (Organizer only, for Present/Late) -->
+                                            <?php if ($role === 'Organizer' && in_array($status, ['Present', 'Present with Late'], true)): ?>
+                                            <form action="../../controllers/AttendanceController.php" method="POST" class="m-0"
+                                                  id="atime_<?php echo $record['id']; ?>">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                                                <input type="hidden" name="action" value="update">
+                                                <input type="hidden" name="attendance_id" value="<?php echo $record['id']; ?>">
+                                                <input type="hidden" name="meeting_id" value="<?php echo $record['meeting_id']; ?>">
+                                                <input type="hidden" name="status" value="<?php echo htmlspecialchars($status); ?>">
                                                 <input type="hidden" name="remarks" value="<?php echo htmlspecialchars($record['remarks'] ?? ''); ?>">
-                                            </div>
-                                        </form>
+                                                <input type="hidden" name="arrival_time" id="atime_val_<?php echo $record['id']; ?>"
+                                                       value="<?php echo htmlspecialchars($record['arrival_time'] ?? ''); ?>">
+                                                <input type="hidden" name="redirect" value="../modules/attendance/index.php?<?php echo htmlspecialchars($_SERVER['QUERY_STRING'] ?? ''); ?>">
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-success rounded-3 px-2"
+                                                        title="Edit Arrival Time"
+                                                        onclick="promptAttArrivalTime('<?php echo $record['id']; ?>', <?php echo htmlspecialchars(json_encode($record['arrival_time'] ?? ''), ENT_QUOTES); ?>)">
+                                                    <i class="fas fa-clock"></i>
+                                                </button>
+                                            </form>
+                                            <?php endif; ?>
+                                        <?php else: ?>
+                                            <!-- Collector: read-only icon badge -->
+                                            <span class="badge <?php echo $statusConf['badge']; ?>">
+                                                <i class="fas <?php echo $statusConf['icon']; ?> me-1"></i><?php echo htmlspecialchars($status); ?>
+                                            </span>
+                                        <?php endif; ?>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -319,12 +347,22 @@ $attendanceRecords = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 </div>
 
 <script>
-function promptRemarks(button, currentRemarks) {
-    const inputField = button.form.querySelector('input[name="remarks"]');
-    const newRemarks = prompt("Enter attendance remarks/feedback:", currentRemarks);
+function promptRemarks(recordId, currentRemarks) {
+    var newRemarks = prompt("Enter attendance remarks/feedback:", currentRemarks || '');
     if (newRemarks !== null) {
-        inputField.value = newRemarks;
-        button.form.submit();
+        document.getElementById('rmk_val_' + recordId).value = newRemarks;
+        document.getElementById('rmk_' + recordId).submit();
+    }
+}
+function promptAttArrivalTime(recordId, currentTime) {
+    var t = prompt("Enter arrival time (HH:MM, 24-hour format):", currentTime ? currentTime.substring(0, 5) : '');
+    if (t !== null) {
+        if (t !== '' && !/^\d{2}:\d{2}$/.test(t)) {
+            alert('Invalid time format. Use HH:MM (e.g. 09:30).');
+            return;
+        }
+        document.getElementById('atime_val_' + recordId).value = t ? t + ':00' : '';
+        document.getElementById('atime_' + recordId).submit();
     }
 }
 </script>

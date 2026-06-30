@@ -4,6 +4,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/upload_helper.php';
 
 function failTaskCreation(string $message, bool $isAjax): void
 {
