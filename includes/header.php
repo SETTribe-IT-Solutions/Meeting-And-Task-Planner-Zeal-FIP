@@ -608,6 +608,12 @@ if ($isLoggedIn) {
           </a>
         </li>
         <li class="nav-item">
+          <a href="<?php echo $basePath; ?>/mom.php" class="nav-link <?php echo basename($currentPath) === 'mom.php' ? 'active' : ''; ?>" <?php echo basename($currentPath) === 'mom.php' ? 'aria-current="page"' : ''; ?>>
+            <i class="fas fa-file-alt"></i>
+            <span>MoM</span>
+          </a>
+        </li>
+        <li class="nav-item">
           <a href="<?php echo $basePath; ?>/modules/tasks/index.php" class="nav-link <?php echo strpos($currentPath, 'tasks') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'tasks') !== false ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-tasks"></i>
             <span>Tasks</span>
