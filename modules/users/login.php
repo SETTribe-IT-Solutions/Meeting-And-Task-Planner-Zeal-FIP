@@ -3,6 +3,18 @@
 
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
+// Language switch — must run before any output
+if (isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'mr'])) {
+    $_SESSION['lang'] = $_GET['lang'];
+    // Redirect to clean URL preserving any other params
+    $params = $_GET;
+    unset($params['lang']);
+    $redirect = $_SERVER['PHP_SELF'] . (!empty($params) ? '?' . http_build_query($params) : '');
+    header('Location: ' . $redirect);
+    exit();
+}
+$currentLang = $_SESSION['lang'] ?? 'en';
+
 // Access Interceptor: If the user is already logged in, bypass login screen completely
 if (isset($_SESSION['role'])) {
     header("Location: ../../index.php");
@@ -16,7 +28,8 @@ if (empty($_SESSION['csrf_token'])) {
 $csrf_token = $_SESSION['csrf_token'];
 
 // Preserved values after failed login
-$old_email = htmlspecialchars($_SESSION['old_email'] ?? '');
+$rememberedEmail = $_COOKIE['remember_email'] ?? '';
+$old_email = htmlspecialchars($_SESSION['old_email'] ?? $rememberedEmail);
 unset($_SESSION['old_email']);
 
 // Error / Success messages
@@ -31,9 +44,9 @@ unset($_SESSION['error'], $_SESSION['success']);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Latur District | Meeting & Task Planner · Government of Maharashtra</title>
     <meta name="description" content="Official Meeting & Task Planner for Latur District Administration, Government of Maharashtra. Secure login portal for district officials.">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>(function(){var s={'-1':'13px','0':'16px','1':'19px'};document.documentElement.style.fontSize=s[localStorage.getItem('fontSize')||'0']||'16px';}());</script>
+    <link href="../../assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="../../assets/vendor/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         /* ═══════════════════════════════════════════
            GOVERNMENT OF INDIA – OFFICIAL PORTAL THEME
@@ -139,6 +152,59 @@ unset($_SESSION['error'], $_SESSION['success']);
             color: var(--text-dark);
         }
 
+        /* ── Fix: field labels invisible in dark/contrast ── */
+        body.theme-dark .gov-field label,
+        body.theme-contrast .gov-field label {
+            color: var(--text-dark);
+        }
+
+        /* ── Fix: welcome banner title invisible in dark/contrast ── */
+        body.theme-dark .welcome-banner h2,
+        body.theme-contrast .welcome-banner h2 {
+            color: var(--text-dark);
+        }
+        body.theme-dark .welcome-banner p,
+        body.theme-contrast .welcome-banner p {
+            color: var(--text-muted);
+        }
+
+        /* ── Fix: accessibility bar buttons invisible in dark/contrast ── */
+        body.theme-dark .font-btn {
+            background: #1e293b;
+            border-color: #475569;
+            color: #e2e8f0;
+        }
+        body.theme-dark .font-btn:hover { background: #334155; }
+        body.theme-dark .font-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+
+        body.theme-contrast .font-btn {
+            background: #000;
+            border-color: #fff;
+            color: #fff;
+        }
+        body.theme-contrast .font-btn:hover { background: #222; }
+        body.theme-contrast .font-btn.active { background: #ffff00; color: #000; border-color: #ffff00; }
+
+        /* ── Fix: header area text invisible in dark mode ── */
+        body.theme-dark .access-left,
+        body.theme-dark .access-right span {
+            color: #94a3b8;
+        }
+
+        /* ── Fix: captcha input in contrast mode ── */
+        body.theme-contrast .captcha-input input {
+            background: #000;
+            color: #fff;
+            border-color: #fff;
+        }
+        body.theme-contrast .captcha-input input::placeholder { color: #aaa; }
+
+        /* ── Fix: form options row in dark/contrast ── */
+        body.theme-dark .remember-check,
+        body.theme-contrast .remember-check {
+            color: var(--text-muted);
+        }
+
         a { color: var(--link-blue); text-decoration: none; }
         a:hover { text-decoration: underline; }
 
@@ -239,7 +305,8 @@ unset($_SESSION['error'], $_SESSION['success']);
         }
         .lang-btn:last-child { border-right: none; }
         .lang-btn.active { background: var(--navy-primary); color: #fff; }
-        .lang-btn:hover:not(.active) { background: #f0ebe0; }
+        .lang-btn:hover:not(.active) { background: #f0ebe0; text-decoration: none; }
+        a.lang-btn { text-decoration: none; display: inline-block; }
 
         /* ── Main Header ── */
         .gov-header {
@@ -1005,10 +1072,28 @@ unset($_SESSION['error'], $_SESSION['success']);
         .footer-tricolor .green   { flex: 1; background: var(--tricolor-green); }
 
         /* ── Responsive ── */
+
+        /* Prevent horizontal scroll at any viewport width */
+        body { overflow-x: hidden; }
+
         @media (max-width: 960px) {
             .main-content {
                 max-width: 100%;
             }
+        }
+
+        /* Compact header at medium widths (100% zoom on ~1280px laptops) */
+        @media (max-width: 1100px) {
+            .header-text .main-title { font-size: 1.2rem; }
+            .header-emblem img { height: 60px; width: 60px; }
+            .nav-link-item { padding: 10px 12px; font-size: 0.74rem; }
+        }
+
+        @media (max-width: 920px) {
+            .nav-inner { flex-wrap: wrap; }
+            .nav-link-item { padding: 8px 10px; font-size: 0.72rem; }
+            .access-inner { gap: 6px; }
+            .access-left { display: none; }
         }
 
         @media (max-width: 600px) {
@@ -1061,8 +1146,8 @@ unset($_SESSION['error'], $_SESSION['success']);
                 <button class="theme-btn t-dark" title="Dark Theme" id="themeDark"></button>
                 <button class="theme-btn t-contrast" title="High Contrast" id="themeContrast"></button>
                 <div class="lang-switch">
-                    <button class="lang-btn active" id="langEn">ENG</button>
-                    <button class="lang-btn" id="langMr">मराठी</button>
+                    <a href="?lang=en" class="lang-btn <?php echo $currentLang === 'en' ? 'active' : ''; ?>" id="langEn">ENG</a>
+                    <a href="?lang=mr" class="lang-btn <?php echo $currentLang === 'mr' ? 'active' : ''; ?>" id="langMr">मराठी</a>
                 </div>
             </div>
         </div>
@@ -1092,12 +1177,12 @@ unset($_SESSION['error'], $_SESSION['success']);
     <nav class="gov-nav">
         <div class="nav-inner">
             <a href="#main-content" class="nav-link-item active"><i class="bi bi-house-door"></i> Home</a>
-            <a href="#about-district" class="nav-link-item"><i class="bi bi-info-circle"></i> About District</a>
-            <a href="#loginCard" class="nav-link-item"><i class="bi bi-building"></i> Administration</a>
-            <a href="#latest-notices" class="nav-link-item"><i class="bi bi-megaphone"></i> Notices</a>
-            <a href="#demo-reports" class="nav-link-item"><i class="bi bi-file-earmark-text"></i> Reports</a>
-            <a href="#contact-help" class="nav-link-item"><i class="bi bi-telephone"></i> Contact</a>
-            <a href="#contact-help" class="nav-link-item"><i class="bi bi-question-circle"></i> Help</a>
+            <a href="../../public/page.php?slug=about-district" class="nav-link-item"><i class="bi bi-info-circle"></i> About District</a>
+            <a href="../../public/page.php?slug=administration" class="nav-link-item"><i class="bi bi-building"></i> Administration</a>
+            <a href="../../public/page.php?slug=notices" class="nav-link-item"><i class="bi bi-megaphone"></i> Notices</a>
+            <a href="../../public/page.php?slug=reports" class="nav-link-item"><i class="bi bi-file-earmark-text"></i> Reports</a>
+            <a href="../../public/page.php?slug=contact" class="nav-link-item"><i class="bi bi-telephone"></i> Contact</a>
+            <a href="../../public/page.php?slug=help" class="nav-link-item"><i class="bi bi-question-circle"></i> Help</a>
         </div>
     </nav>
 
@@ -1196,7 +1281,7 @@ unset($_SESSION['error'], $_SESSION['success']);
                         <!-- Options -->
                         <div class="form-options-row">
                             <label class="remember-check">
-                                <input type="checkbox" name="remember" id="rememberMe"> Remember me
+                                <input type="checkbox" name="remember" id="rememberMe" <?php echo !empty($rememberedEmail) ? 'checked' : ''; ?>> Remember me
                             </label>
                             <a href="#" class="forgot-link" id="forgotPasswordLink">Forgot Password?</a>
                         </div>
@@ -1209,9 +1294,6 @@ unset($_SESSION['error'], $_SESSION['success']);
                         </button>
                     </form>
 
-                    <div class="register-row">
-                        New official? <a href="register.php">Request Access / Register</a>
-                    </div>
                 </div>
             </div>
 
@@ -1304,7 +1386,7 @@ unset($_SESSION['error'], $_SESSION['success']);
 
         // ── CAPTCHA Generator ──
         function generateCaptcha() {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
             captchaCode = '';
             for (let i = 0; i < 5; i++) {
                 captchaCode += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -1323,7 +1405,7 @@ unset($_SESSION['error'], $_SESSION['success']);
             if (this.value === '') {
                 showFieldError('captcha', 'Please enter the captcha code');
                 validity.captcha = false;
-            } else if (this.value !== captchaCode) {
+            } else if (this.value.toUpperCase() !== captchaCode) {
                 showFieldError('captcha', 'Captcha does not match');
                 validity.captcha = false;
             } else {
@@ -1487,28 +1569,22 @@ unset($_SESSION['error'], $_SESSION['success']);
             });
         });
 
+        // Font size — shared key 'fontSize' with utility bar, applied to <html>
         const fontBtns = [document.getElementById('fontSmall'), document.getElementById('fontDefault'), document.getElementById('fontLarge')];
-        const sizes = ['14px', '16px', '18px'];
-        const savedFontSize = localStorage.getItem('portalFontSize');
-        const savedFontIndex = sizes.indexOf(savedFontSize);
+        const fontLevels = ['-1', '0', '1'];
+        const fontSizes  = {'-1': '13px', '0': '16px', '1': '19px'};
 
-        function applyFontSize(index) {
-            if (!fontBtns[index]) return;
-            document.body.style.fontSize = sizes[index];
-            localStorage.setItem('portalFontSize', sizes[index]);
-            fontBtns.forEach(b => { if (b) b.classList.remove('active'); });
-            fontBtns[index].classList.add('active');
+        function applyFontSize(level) {
+            document.documentElement.style.fontSize = fontSizes[level] || '16px';
+            localStorage.setItem('fontSize', level);
+            fontBtns.forEach((b, i) => { if (b) b.classList.toggle('active', fontLevels[i] === level); });
         }
 
-        if (savedFontIndex >= 0) {
-            applyFontSize(savedFontIndex);
-        }
+        applyFontSize(localStorage.getItem('fontSize') || '0');
 
         fontBtns.forEach((btn, i) => {
             if (!btn) return;
-            btn.addEventListener('click', function() {
-                applyFontSize(i);
-            });
+            btn.addEventListener('click', function() { applyFontSize(fontLevels[i]); });
         });
 
         const themeMap = {
@@ -1538,27 +1614,7 @@ unset($_SESSION['error'], $_SESSION['success']);
         });
         applyTheme(localStorage.getItem('portalTheme') || 'default');
 
-        const langBtns = {
-            en: document.getElementById('langEn'),
-            mr: document.getElementById('langMr')
-        };
-
-        function applyLanguage(lang) {
-            const selectedLang = lang === 'mr' ? 'mr' : 'en';
-            document.documentElement.lang = selectedLang;
-            Object.keys(langBtns).forEach(key => {
-                if (langBtns[key]) langBtns[key].classList.toggle('active', key === selectedLang);
-            });
-            localStorage.setItem('portalLang', selectedLang);
-        }
-
-        Object.keys(langBtns).forEach(lang => {
-            if (!langBtns[lang]) return;
-            langBtns[lang].addEventListener('click', function() {
-                applyLanguage(lang);
-            });
-        });
-        applyLanguage(localStorage.getItem('portalLang') || 'en');
+        // Language active state is server-rendered via PHP — no JS needed here.
 
 
     });

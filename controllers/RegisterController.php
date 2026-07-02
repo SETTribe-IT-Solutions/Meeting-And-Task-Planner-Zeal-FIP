@@ -10,8 +10,9 @@ require_once __DIR__ . '/../config/db.php';
 
 class RegisterController {
 
-    // Allowed values for dropdowns (whitelist validation)
-    private static $VALID_ROLES = ['Collector', 'Organizer', 'Employee'];
+    // Self-registration is restricted to Employee only.
+    // Collector / Organizer accounts must be created by an admin via the Users module.
+    private static $VALID_ROLES = ['Employee'];
 
     private static $VALID_TALUKAS = [
         'Latur', 'Udgir', 'Ahmedpur', 'Nilanga', 'Ausa',
@@ -190,10 +191,10 @@ class RegisterController {
 
             // Insert new user
             $stmt = $conn->prepare(
-                "INSERT INTO users (name, email, password, role, department, isDeleted) 
-                 VALUES (?, ?, ?, ?, ?, 'No')"
+                "INSERT INTO users (name, email, password, role, department, phone, gender, designation, taluka, isDeleted)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'No')"
             );
-            $stmt->bind_param("sssss", $name, $email, $hashedPassword, $role, $department);
+            $stmt->bind_param("sssssssss", $name, $email, $hashedPassword, $role, $department, $phone, $gender, $designation, $taluka);
             $stmt->execute();
 
             if ($stmt->affected_rows > 0) {
@@ -225,7 +226,7 @@ class RegisterController {
      * Redirect back to registration page
      */
     private function redirectBack() {
-        header('Location: ../modules/users/login.php');
+        header('Location: ../modules/users/register.php');
         exit();
     }
 }

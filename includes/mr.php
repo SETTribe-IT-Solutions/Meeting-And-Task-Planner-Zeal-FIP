@@ -12,7 +12,13 @@ return [
         'attendance' => 'उपस्थिती',
         'user_mgmt' => 'वापरकर्ता व्यवस्थापन',
         'reports' => 'अहवाल',
-        'my_profile' => 'माझी प्रोफाइल'
+        'my_profile' => 'माझी प्रोफाइल',
+        'meetings' => 'बैठका',
+        'tasks' => 'कामे',
+        'departments' => 'विभाग',
+        'latur_division' => 'लातूर विभाग',
+        'maharashtra' => 'महाराष्ट्र',
+        'meeting_task_planner' => 'बैठक व कार्य नियोजक'
     ],
     'auth' => [
         'login' => 'लॉगिन',

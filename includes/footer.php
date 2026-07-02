@@ -27,12 +27,12 @@
         }
     </style>
 
-    <!-- Bootstrap 5.3 JS Bundle -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- Bootstrap 5.3 JS Bundle (local) -->
+    <script src="<?php echo defined('APP_URL') ? APP_URL : ''; ?>/assets/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <!-- jQuery (local) -->
+    <script src="<?php echo defined('APP_URL') ? APP_URL : ''; ?>/assets/vendor/jquery/jquery-3.7.1.min.js"></script>
     <!-- Custom App JS (Pagination, Filters, Animations) -->
-    <script src="<?php echo defined('APP_URL') ? APP_URL : ''; ?>/assets/js/app.js"></script>
+    <script src="<?php echo defined('APP_URL') ? APP_URL : ''; ?>/assets/js/app.js?v=9"></script>
     
     <!-- Footer -->
     <footer class="footer">
@@ -59,6 +59,22 @@
         }
         updateDate();
         setInterval(updateDate, 30000);
+    </script>
+    <script>
+    (function(){
+      var sizes={'-1':'13px','0':'16px','1':'19px'};
+      function applySize(level){
+        document.documentElement.style.fontSize=sizes[level]||'16px';
+        localStorage.setItem('fontSize',level);
+        document.querySelectorAll('.font-btn').forEach(function(b){
+          b.classList.toggle('util-active', b.dataset.size===String(level));
+        });
+      }
+      applySize(localStorage.getItem('fontSize')||'0');
+      document.querySelectorAll('.font-btn').forEach(function(btn){
+        btn.addEventListener('click',function(){ applySize(this.dataset.size); });
+      });
+    }());
     </script>
 </body>
 </html>
