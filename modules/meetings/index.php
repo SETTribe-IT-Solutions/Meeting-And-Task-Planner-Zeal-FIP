@@ -24,7 +24,7 @@ if ($role === 'Employee') {
     $sql .= " WHERE (m.department = ? OR EXISTS (SELECT 1 FROM attendance a WHERE a.meeting_id = m.id AND a.user_id = ?))";
 }
 
-$sql .= " ORDER BY m.meeting_date ASC, m.meeting_time ASC";
+$sql .= " ORDER BY m.meeting_date DESC, m.meeting_time DESC";
 
 $stmt = $conn->prepare($sql);
 if ($role === 'Employee') {

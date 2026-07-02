@@ -116,6 +116,16 @@ if ($role === 'Collector' || $role === 'Organizer') {
 
     $total_users = 0;
 
+    $mom_total_result = $conn->query("SELECT COUNT(*) as total FROM mom_records");
+    $mom_total = $mom_total_result->fetch_assoc()['total'] ?? 0;
+
+    $latest_mom_result = $conn->query("SELECT note_title, created_at FROM mom_records ORDER BY created_at DESC LIMIT 1");
+    $latest_mom = $latest_mom_result->fetch_assoc();
+    $latest_mom_title = $latest_mom['note_title'] ?? 'None yet';
+
+    $pending_mom_tasks_result = $conn->query("SELECT COUNT(*) as total FROM tasks t JOIN mom_records mr ON mr.linked_task_id = t.id WHERE t.status IN ('Pending', 'In Progress')");
+    $pending_mom_tasks = $pending_mom_tasks_result->fetch_assoc()['total'] ?? 0;
+
     $stmt = $conn->prepare("SELECT DISTINCT m.*, u.name as organizer_name 
                             FROM meetings m 
                             JOIN users u ON m.organizer_id = u.id 
@@ -138,6 +148,7 @@ if ($role === 'Collector' || $role === 'Organizer') {
 $task_completion_pct = $total_tasks > 0 ? round(($completed_tasks / $total_tasks) * 100) : 0;
 
 include __DIR__ . '/includes/header.php';
+include __DIR__ . '/includes/smart-alert.php';
 ?>
 
 <!-- Welcome Card -->
@@ -228,6 +239,14 @@ include __DIR__ . '/includes/header.php';
             <div class="stat-label mb-2">PENDING TASKS</div>
             <div class="stat-value counter-value" data-target="<?php echo $pending_tasks; ?>"><?php echo $pending_tasks; ?></div>
             <div class="stat-trend mt-2"><i class="fas fa-check-circle me-1"></i> <?php echo $completed_tasks; ?> completed</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 animate-on-scroll">
+        <div class="card stat-card stat-info border-0 h-100 p-4">
+            <i class="fas fa-file-alt stat-icon"></i>
+            <div class="stat-label mb-2">MoM RECORDS</div>
+            <div class="stat-value counter-value" data-target="<?php echo $mom_total; ?>"><?php echo $mom_total; ?></div>
+            <div class="stat-trend mt-2"><i class="fas fa-clipboard-list me-1"></i> <?php echo htmlspecialchars($latest_mom_title); ?></div>
         </div>
     </div>
     <div class="col-xl-3 col-md-6 animate-on-scroll">

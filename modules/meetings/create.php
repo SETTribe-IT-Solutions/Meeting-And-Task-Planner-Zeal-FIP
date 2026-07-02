@@ -150,6 +150,18 @@ include_once '../../includes/header.php';
                             <div id="attendeesHint" class="text-muted small mt-1">
                                 <i class="fas fa-info-circle me-1"></i>Select a department above to load attendees.
                             </div>
+                            <div id="attendeesWidget" style="display:none;">
+                                <select name="attendees[]" id="attendeesSelect" multiple></select>
+                            </div>
+                            <div id="attendeesHint" class="text-muted small mt-1">
+                                <i class="fas fa-info-circle me-1"></i>Select a department above to load attendees.
+                            </div>
+                        </div>
+
+                        <!-- Agenda -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Agenda <span class="text-danger">*</span></label>
+                            <textarea name="agenda" class="form-control rounded-3" rows="4" required placeholder="Meeting agenda points...&#10;• Point 1&#10;• Point 2"></textarea>
                         </div>
 
                         <!-- Agenda -->

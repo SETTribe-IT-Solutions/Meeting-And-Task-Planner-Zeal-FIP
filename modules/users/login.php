@@ -1500,7 +1500,7 @@ unset($_SESSION['error'], $_SESSION['success']);
         // ── Forgot Password ──
         document.getElementById('forgotPasswordLink').addEventListener('click', function(e) {
             e.preventDefault();
-            alert('Contact IT Support:\n📧 support@latur.gov.in\n📞 +91-2382-252200');
+            window.location.href = 'forgot-password.php';
         });
 
         // ── Helpers ──
