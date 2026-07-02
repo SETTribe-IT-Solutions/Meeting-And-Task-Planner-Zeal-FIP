@@ -3,16 +3,16 @@
 // Database configuration file
 
 if (!defined('DB_HOST')) {
-    define('DB_HOST', 'localhost');
+    define('DB_HOST', '82.25.121.144');
 }
 if (!defined('DB_USER')) {
-    define('DB_USER', 'root');
+    define('DB_USER', 'u196817721_MTP_DB_U');
 }
 if (!defined('DB_PASS')) {
-    define('DB_PASS', '');
+    define('DB_PASS', 'MeetingAndTaskP@2026');
 }
 if (!defined('DB_NAME')) {
-    define('DB_NAME', 'meeting_planner');
+    define('DB_NAME', 'u196817721_MTP_DB');
 }
 
 // Calculate project base URL for routing
