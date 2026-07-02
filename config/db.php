@@ -151,6 +151,8 @@ function getDBConnection() {
 
         ensureDepartmentStructure($conn);
         ensurePhase2ASchema($conn);
+        ensureMeetingSchema($conn);
+        ensureMoMSchema($conn);
         
         return $conn;
     } catch (Exception $e) {
@@ -255,6 +257,22 @@ function __($key) {
 // Set timezone
 date_default_timezone_set('Asia/Kolkata');
 
+function ensureMeetingSchema($conn) {
+    $checks = [
+        ['duration', "ALTER TABLE meetings ADD COLUMN duration INT NULL COMMENT 'Duration in minutes' AFTER meeting_time"],
+        ['meeting_url', "ALTER TABLE meetings ADD COLUMN meeting_url VARCHAR(500) NULL AFTER location"],
+        ['updated_at', "ALTER TABLE meetings ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at"],
+        ['cancel_reason', "ALTER TABLE meetings ADD COLUMN cancel_reason TEXT NULL AFTER status"]
+    ];
+
+    foreach ($checks as $check) {
+        $r = $conn->query("SHOW COLUMNS FROM meetings LIKE '" . $check[0] . "'");
+        if ($r && $r->num_rows === 0) {
+            $conn->query($check[1]);
+        }
+    }
+}
+
 function ensurePhase2ASchema($conn) {
     // attendance.arrival_time (Phase 2A Feature 3)
     $r = $conn->query("SHOW COLUMNS FROM attendance LIKE 'arrival_time'");
@@ -302,6 +320,27 @@ function ensurePhase2ASchema($conn) {
         FOREIGN KEY (task_id)     REFERENCES tasks(id) ON DELETE CASCADE,
         FOREIGN KEY (uploaded_by) REFERENCES users(id),
         INDEX idx_tka_task_id (task_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function ensureMoMSchema($conn) {
+    $conn->query("CREATE TABLE IF NOT EXISTS mom_records (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        meeting_id INT NOT NULL,
+        note_title VARCHAR(255) NOT NULL,
+        note_description TEXT NOT NULL,
+        department VARCHAR(100) NOT NULL,
+        linked_task_id INT NULL,
+        attachment VARCHAR(255) NULL,
+        created_by INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE,
+        FOREIGN KEY (linked_task_id) REFERENCES tasks(id) ON DELETE SET NULL,
+        FOREIGN KEY (created_by) REFERENCES users(id),
+        INDEX idx_mom_meeting_id (meeting_id),
+        INDEX idx_mom_created_by (created_by),
+        INDEX idx_mom_department (department)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 

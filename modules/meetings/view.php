@@ -102,8 +102,12 @@ $canAct      = ($role === 'Organizer' && $isScheduled);
             <a href="index.php" class="btn btn-sm btn-outline-secondary rounded-3">
                 <i class="fas fa-arrow-left me-1"></i> Back to Meetings
             </a>
-            <?php if ($canAct): ?>
             <div class="d-flex gap-2 flex-wrap">
+                <a href="mom.php?meeting_id=<?php echo $meetingId; ?>"
+                   class="btn btn-info rounded-3 fw-semibold px-4">
+                    <i class="fas fa-file-alt me-2"></i>View MOM
+                </a>
+                <?php if ($canAct): ?>
                 <a href="edit.php?id=<?php echo $meetingId; ?>"
                    class="btn btn-warning rounded-3 fw-semibold px-4">
                     <i class="fas fa-pencil-alt me-2"></i>Edit
@@ -118,8 +122,8 @@ $canAct      = ($role === 'Organizer' && $isScheduled);
                     data-bs-toggle="modal" data-bs-target="#cancelMeetingModal">
                     <i class="fas fa-calendar-times me-2"></i>Cancel Meeting
                 </button>
+                <?php endif; ?>
             </div>
-            <?php endif; ?>
         </div>
 
         <?php if (isset($_SESSION['success'])): ?>

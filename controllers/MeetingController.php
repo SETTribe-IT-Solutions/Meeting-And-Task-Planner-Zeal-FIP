@@ -75,6 +75,9 @@ try {
         "INSERT INTO meetings (title, meeting_date, meeting_time, location, meeting_url, mode, duration, agenda, department, organizer_id)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
+    if (!$stmt) {
+        throw new Exception('Unable to prepare meeting insert: ' . $conn->error);
+    }
     $stmt->bind_param("ssssssissi",
         $title, $meetingDate, $meetingTime, $location, $meetingUrl,
         $mode, $duration, $agenda, $department, $organizerId
