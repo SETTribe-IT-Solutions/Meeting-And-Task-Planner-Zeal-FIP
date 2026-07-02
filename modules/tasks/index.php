@@ -338,7 +338,8 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                                                         '<?php echo (int)$task['id']; ?>',
                                                         <?php echo htmlspecialchars(json_encode($task['title']), ENT_QUOTES); ?>,
                                                         '<?php echo htmlspecialchars($task['status'], ENT_QUOTES); ?>',
-                                                        <?php echo htmlspecialchars(json_encode($task['progress_notes'] ?? ''), ENT_QUOTES); ?>
+                                                        <?php echo htmlspecialchars(json_encode($task['progress_notes'] ?? ''), ENT_QUOTES); ?>,
+                                                        <?php echo htmlspecialchars(json_encode($task['updated_at'] ?? ''), ENT_QUOTES); ?>
                                                     )">
                                                 <i class="fas fa-comment-alt"></i>
                                             </button>
@@ -505,6 +506,10 @@ $overdueCount = count(array_filter($tasks, fn($t) => strtotime($t['due_date']) <
                             <option value="Cancelled">Cancelled</option>
                         </select>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Last Updated On</label>
+                        <input type="text" id="progressModalUpdatedAt" class="form-control rounded-3 bg-light" readonly>
+                    </div>
                     <div class="mb-1">
                         <label class="form-label fw-semibold">
                             Progress Notes <span class="text-muted fw-normal small">(optional, max 1000 chars)</span>
@@ -650,6 +655,7 @@ function openTaskModal(row) {
         progressBtn.dataset.taskTitle    = title;
         progressBtn.dataset.taskStatus   = status;
         progressBtn.dataset.progressNotes = progressNotes;
+        progressBtn.dataset.updatedAt    = updatedAt;
         progressBtn.style.display = '';
     }
 
@@ -663,16 +669,17 @@ function openProgressFromModal() {
     var taskTitle  = btn.dataset.taskTitle;
     var taskStatus = btn.dataset.taskStatus;
     var notes      = btn.dataset.progressNotes;
+    var updatedAt  = btn.dataset.updatedAt || '';
     var detailEl   = document.getElementById('taskDetailModal');
     detailEl.addEventListener('hidden.bs.modal', function handler() {
         detailEl.removeEventListener('hidden.bs.modal', handler);
-        openProgressModal(taskId, taskTitle, taskStatus, notes);
+        openProgressModal(taskId, taskTitle, taskStatus, notes, updatedAt);
     });
     bootstrap.Modal.getInstance(detailEl).hide();
 }
 
 // Open the Update Progress modal
-function openProgressModal(taskId, taskTitle, currentStatus, currentNotes) {
+function openProgressModal(taskId, taskTitle, currentStatus, currentNotes, currentUpdatedAt) {
     document.getElementById('progressModalTaskId').value    = taskId;
     document.getElementById('progressModalTitle').textContent = taskTitle;
 
@@ -683,9 +690,30 @@ function openProgressModal(taskId, taskTitle, currentStatus, currentNotes) {
 
     var ta = document.getElementById('progressModalNotes');
     ta.value = currentNotes || '';
+
+    var updatedAtInput = document.getElementById('progressModalUpdatedAt');
+    if (updatedAtInput) {
+        updatedAtInput.value = formatTaskTimestamp(currentUpdatedAt) || new Date().toLocaleString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+    }
+
     updateProgressCounter();
 
     new bootstrap.Modal(document.getElementById('updateProgressModal')).show();
+}
+
+function formatTaskTimestamp(value) {
+    if (!value) return '';
+    var d = new Date(value.replace(' ', 'T'));
+    if (isNaN(d)) return value;
+    return d.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}) + ' ' +
+        d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', hour12:true});
 }
 
 function updateProgressCounter() {

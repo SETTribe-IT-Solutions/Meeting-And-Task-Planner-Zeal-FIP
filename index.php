@@ -52,16 +52,6 @@ if ($role === 'Collector' || $role === 'Organizer') {
     $total_users_result = $conn->query("SELECT COUNT(*) as total FROM users WHERE isDeleted = 'No'");
     $total_users = $total_users_result->fetch_assoc()['total'] ?? 0;
 
-    $mom_total_result = $conn->query("SELECT COUNT(*) as total FROM mom_records");
-    $mom_total = $mom_total_result->fetch_assoc()['total'] ?? 0;
-
-    $latest_mom_result = $conn->query("SELECT note_title, created_at FROM mom_records ORDER BY created_at DESC LIMIT 1");
-    $latest_mom = $latest_mom_result->fetch_assoc();
-    $latest_mom_title = $latest_mom['note_title'] ?? 'None yet';
-
-    $pending_mom_tasks_result = $conn->query("SELECT COUNT(*) as total FROM tasks t JOIN mom_records mr ON mr.linked_task_id = t.id WHERE t.status IN ('Pending', 'In Progress')");
-    $pending_mom_tasks = $pending_mom_tasks_result->fetch_assoc()['total'] ?? 0;
-
     $stmt = $conn->prepare("SELECT m.*, u.name as organizer_name
                             FROM meetings m
                             JOIN users u ON m.organizer_id = u.id
@@ -77,14 +67,6 @@ if ($role === 'Collector' || $role === 'Organizer') {
         $upcoming = [];
     }
 
-    $tasks_query = "SELECT t.*, u.name as assignee_name, m.title as meeting_title
-                    FROM tasks t
-                    JOIN users u ON t.assigned_to = u.id
-                    JOIN meetings m ON t.meeting_id = m.id
-                    WHERE t.status IN ('Pending', 'In Progress')
-                    ORDER BY t.due_date ASC
-                    LIMIT 5";
-    $active_tasks = $conn->query($tasks_query)->fetch_all(MYSQLI_ASSOC);
 } else {
     // Employee sees meetings in their department / invited to, and tasks assigned to them
     $stmt = $conn->prepare("SELECT COUNT(DISTINCT m.id) as total FROM meetings m LEFT JOIN attendance a ON m.id = a.meeting_id WHERE m.department = ? OR a.user_id = ?");
@@ -161,22 +143,6 @@ if ($role === 'Collector' || $role === 'Organizer') {
         $upcoming = [];
     }
 
-    $stmt = $conn->prepare("SELECT t.*, u.name as assignee_name, m.title as meeting_title 
-                            FROM tasks t 
-                            JOIN users u ON t.assigned_to = u.id 
-                            JOIN meetings m ON t.meeting_id = m.id 
-                            WHERE t.assigned_to = ? AND t.status IN ('Pending', 'In Progress') 
-                            ORDER BY t.due_date ASC 
-                            LIMIT 5");
-    if ($stmt) {
-        $stmt->bind_param("i", $user_id);
-        $stmt->execute();
-        $res = $stmt->get_result();
-        $active_tasks = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
-    } else {
-        error_log('Prepare failed (employee active_tasks): ' . $conn->error);
-        $active_tasks = [];
-    }
 }
 
 $task_completion_pct = $total_tasks > 0 ? round(($completed_tasks / $total_tasks) * 100) : 0;
@@ -405,9 +371,9 @@ include __DIR__ . '/includes/smart-alert.php';
     </div>
 </div>
 
-<!-- Quick Actions and Active Tasks -->
+<!-- Quick Actions -->
 <div class="row g-4">
-    <div class="col-md-6 animate-on-scroll">
+    <div class="col-12 animate-on-scroll">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-white py-3 fw-bold" style="color: var(--gov-blue); border-bottom: 2px solid #eef2f6;">
                 <i class="fas fa-bolt text-warning me-2"></i> Quick Actions
@@ -429,41 +395,6 @@ include __DIR__ . '/includes/smart-alert.php';
                         <i class="fas fa-user-circle"></i> View My Profile
                     </a>
                 </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 animate-on-scroll">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-white py-3 fw-bold" style="color: var(--gov-blue); border-bottom: 2px solid #eef2f6;">
-                <i class="fas fa-tasks text-success me-2"></i> Active Tasks (Next 5)
-            </div>
-            <div class="card-body">
-                <?php if (empty($active_tasks)): ?>
-                    <div class="empty-state">
-                        <i class="bi bi-check2-circle text-success"></i>
-                        <p>No active tasks assigned.</p>
-                    </div>
-                <?php else: ?>
-                    <div class="list-group list-group-flush">
-                        <?php foreach ($active_tasks as $task): ?>
-                            <div class="list-group-item px-0 py-3">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1 fw-bold text-dark"><?php echo htmlspecialchars($task['title']); ?></h6>
-                                    <small class="<?php echo (strtotime($task['due_date']) < strtotime($today)) ? 'overdue-text' : 'text-danger'; ?> fw-semibold">Due: <?php echo date('d M', strtotime($task['due_date'])); ?></small>
-                                </div>
-                                <p class="mb-1 text-muted small">Meeting: <?php echo htmlspecialchars($task['meeting_title']); ?></p>
-                                <div class="d-flex justify-content-between align-items-center mt-2">
-                                    <?php
-                                    $pBadge = match($task['priority']) { 'High'=>'badge-priority-high', 'Medium'=>'badge-priority-medium', 'Low'=>'badge-priority-low', default=>'bg-secondary' };
-                                    $sBadge = match($task['status']) { 'Completed'=>'badge-status-completed', 'In Progress'=>'badge-status-ongoing', 'Pending'=>'badge-status-scheduled', default=>'bg-secondary' };
-                                    ?>
-                                    <span class="badge <?php echo $pBadge; ?>"><?php echo htmlspecialchars($task['priority']); ?> Priority</span>
-                                    <span class="badge <?php echo $sBadge; ?>"><?php echo htmlspecialchars($task['status']); ?></span>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
             </div>
         </div>
     </div>

@@ -275,6 +275,7 @@ $reopenCreate = !empty($errors);
                             <select name="role" class="form-select rounded-3" required>
                                 <option value="Employee" <?php echo (($old['role'] ?? 'Employee') === 'Employee') ? 'selected' : ''; ?>>Employee</option>
                                 <option value="Organizer" <?php echo (($old['role'] ?? '') === 'Organizer') ? 'selected' : ''; ?>>Organizer</option>
+                                <option value="Collector" <?php echo (($old['role'] ?? '') === 'Collector') ? 'selected' : ''; ?>>Collector</option>
                             </select>
                         </div>
                         <div class="col-12">
@@ -353,6 +354,7 @@ $reopenCreate = !empty($errors);
                             <select name="role" id="editRole" class="form-select rounded-3" required>
                                 <option value="Employee">Employee</option>
                                 <option value="Organizer">Organizer</option>
+                                <option value="Collector">Collector</option>
                             </select>
                         </div>
                         <div class="col-12">

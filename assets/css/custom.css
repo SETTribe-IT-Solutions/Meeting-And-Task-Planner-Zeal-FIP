@@ -3,8 +3,7 @@
    Premium Design System with Animations & Modern UI
    ═══════════════════════════════════════════════════════════ */
 
-/* ── Google Fonts ── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap');
+/* ── Fonts: system stack (Inter/Poppins loaded from OS or browser, Segoe UI fallback) ── */
 
 /* ── CSS Variables ── */
 :root {
@@ -1090,25 +1089,50 @@ body {
 }
 
 /* ── Responsive ── */
+
+/* Prevent horizontal overflow on the app body */
+body {
+    overflow-x: hidden;
+}
+
+/* Ensure tables always scroll horizontally rather than expanding the layout */
+.table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Compact stat cards and padding at medium viewport widths (1280px = 100% zoom on common laptops) */
+@media (max-width: 1280px) {
+    .stat-card .stat-value {
+        font-size: 1.6rem;
+    }
+    .stat-card .stat-label {
+        font-size: 0.7rem;
+    }
+    .main-content {
+        padding: 1.5rem;
+    }
+}
+
 @media (max-width: 768px) {
     .stat-card .stat-value {
         font-size: 1.5rem;
     }
-    
+
     .pagination-wrapper {
         flex-direction: column;
         align-items: stretch;
         text-align: center;
     }
-    
+
     .pagination-controls {
         justify-content: center;
     }
-    
+
     .table-filter-bar {
         flex-direction: column;
     }
-    
+
     .table-search-input {
         max-width: 100%;
     }

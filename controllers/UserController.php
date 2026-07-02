@@ -78,7 +78,7 @@ if ($action === 'create') {
         $errors[] = 'Please select a valid department.';
     }
 
-    if (!in_array($role, ['Employee', 'Organizer'], true)) {
+    if (!in_array($role, ['Employee', 'Organizer', 'Collector'], true)) {
         $errors[] = 'Please select a valid role.';
     }
 
@@ -145,7 +145,7 @@ if ($action === 'edit') {
         $errors[] = 'Please select a valid department.';
     }
 
-    if (!in_array($role, ['Employee', 'Organizer'], true)) {
+    if (!in_array($role, ['Employee', 'Organizer', 'Collector'], true)) {
         $errors[] = 'Please select a valid role.';
     }
 

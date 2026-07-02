@@ -93,9 +93,6 @@ try {
              meeting_url = ?, mode = ?, duration = ?, agenda = ?, department = ?
          WHERE id = ? AND status = 'Scheduled'"
     );
-    if (!$upd) {
-        throw new Exception('Unable to prepare meeting update: ' . $conn->error);
-    }
     $upd->bind_param('ssssssissi',
         $title, $meetingDate, $meetingTime, $location,
         $meetingUrl, $mode, $duration, $agenda, $department, $meetingId

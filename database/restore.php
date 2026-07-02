@@ -55,8 +55,8 @@ $backupSize   = $backupExists ? round(filesize($backupFile) / 1024, 1) . ' KB' :
 <head>
 <meta charset="UTF-8">
 <title>DB Restore — Meeting Planner</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<link href="../assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+<link href="../assets/vendor/fontawesome/css/all.min.css" rel="stylesheet">
 <style>
 body { background: #f0f4f8; font-family: 'Segoe UI', sans-serif; }
 .tool-card { max-width: 560px; margin: 60px auto; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }

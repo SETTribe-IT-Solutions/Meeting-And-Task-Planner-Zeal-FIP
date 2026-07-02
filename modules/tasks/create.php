@@ -36,7 +36,7 @@ if ($prefillMeetingId > 0) {
     }
 }
 ?>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
+<link rel="stylesheet" href="<?php echo $basePath; ?>/assets/vendor/tom-select/css/tom-select.bootstrap5.min.css">
 <style>
 .ts-wrapper.multi .ts-control { min-height: 42px; border-radius: 0.5rem; }
 .ts-wrapper.multi .ts-control input { color: #212529; }
@@ -155,7 +155,7 @@ if ($prefillMeetingId > 0) {
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script src="<?php echo $basePath; ?>/assets/vendor/tom-select/js/tom-select.complete.min.js"></script>
 <script>
 (function () {
     var allUsers = <?php echo json_encode($all_users, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;

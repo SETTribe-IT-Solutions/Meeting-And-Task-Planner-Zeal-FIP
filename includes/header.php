@@ -9,6 +9,8 @@ $userRole = $_SESSION['role'] ?? '';
 
 $basePath = defined('APP_URL') ? APP_URL : '';
 $currentLang = $_SESSION['lang'] ?? 'en';
+$_langEnUrl = htmlspecialchars($_SERVER['PHP_SELF'] . '?' . http_build_query(array_merge($_GET, ['lang' => 'en'])));
+$_langMrUrl = htmlspecialchars($_SERVER['PHP_SELF'] . '?' . http_build_query(array_merge($_GET, ['lang' => 'mr'])));
 $currentPath = $_SERVER['PHP_SELF'] ?? '';
 $today = date('Y-m-d');
 $notificationItems = [];
@@ -97,16 +99,13 @@ if ($isLoggedIn) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
   <title>Latur District | Meeting & Task Planner</title>
   <meta name="description" content="Official Meeting & Task Planner for Latur District Administration. Coordinate meetings, assign tasks, and track progress.">
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- Font Awesome 6 for icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <!-- Bootstrap Icons -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-  <!-- Bootstrap 5.3 CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script>(function(){var s={'-1':'13px','0':'16px','1':'19px'};document.documentElement.style.fontSize=s[localStorage.getItem('fontSize')||'0']||'16px';}());</script>
+  <!-- Bootstrap 5.3 CSS (local) -->
+  <link href="<?php echo $basePath; ?>/assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <!-- Font Awesome 6 for icons (local) -->
+  <link rel="stylesheet" href="<?php echo $basePath; ?>/assets/vendor/fontawesome/css/all.min.css">
+  <!-- Bootstrap Icons (local) -->
+  <link rel="stylesheet" href="<?php echo $basePath; ?>/assets/vendor/bootstrap-icons/font/bootstrap-icons.css">
   <!-- Custom Design System CSS -->
   <link rel="stylesheet" href="<?php echo $basePath; ?>/assets/css/custom.css">
   <style>
@@ -134,6 +133,63 @@ if ($isLoggedIn) {
     }
 
     /* ===== HEADER ===== */
+    /* ===== UTILITY BAR ===== */
+    .site-top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 200;
+    }
+
+    .utility-bar {
+      background: #072d46;
+      padding: 5px 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .util-group {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .util-btn {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: rgba(255,255,255,0.72);
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      line-height: 1.8;
+      font-family: 'Inter', sans-serif;
+      display: inline-block;
+    }
+
+    .util-btn:hover {
+      background: rgba(255,255,255,0.18);
+      color: white;
+      text-decoration: none;
+    }
+
+    .util-btn.util-active {
+      background: rgba(255,255,255,0.9);
+      color: #072d46;
+      font-weight: 600;
+      border-color: transparent;
+    }
+
+    .util-sep {
+      color: rgba(255,255,255,0.22);
+      padding: 0 3px;
+      user-select: none;
+      font-size: 0.8rem;
+    }
+
     .header {
       background: linear-gradient(135deg, #0b3d5f 0%, #1a5f7a 50%, #0b3d5f 100%);
       background-size: 200% 200%;
@@ -144,9 +200,6 @@ if ($isLoggedIn) {
       align-items: center;
       justify-content: space-between;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-      position: sticky;
-      top: 0;
-      z-index: 100;
       flex-wrap: wrap;
     }
 
@@ -470,7 +523,32 @@ if ($isLoggedIn) {
       transform: translateX(4px);
     }
 
+    /* ── Medium screens (1280px–1440px): compact header + narrower sidebar ── */
+    @media (max-width: 1440px) {
+      .title-section h1 { font-size: 1.4rem; }
+      .sidebar { width: 240px; }
+    }
+
+    @media (max-width: 1280px) {
+      .title-section h1 { font-size: 1.25rem; }
+      .title-section .subtitle { font-size: 0.78rem; }
+      .header { padding: 0.6rem 1.2rem; }
+      .sidebar { width: 220px; }
+      .header-actions { gap: 12px; }
+      .date-badge { padding: 0.4rem 0.8rem; font-size: 0.82rem; }
+    }
+
+    @media (max-width: 1100px) {
+      /* Hide date text, show only icon to reclaim horizontal space */
+      .header-actions .date-badge span { display: none; }
+      .header-actions .date-badge { padding: 0.4rem 0.7rem; }
+      .title-section h1 { font-size: 1.1rem; }
+    }
+
     @media (max-width: 750px) {
+      .utility-bar { padding: 4px 1rem; }
+      .util-btn { padding: 2px 7px; font-size: 0.68rem; }
+
       .header {
         flex-direction: row;
         align-items: center;
@@ -508,7 +586,20 @@ if ($isLoggedIn) {
   </style>
 </head>
 <body>
-  <!-- HEADER -->
+  <!-- UTILITY BAR + HEADER (sticky wrapper) -->
+  <div class="site-top-bar">
+    <div class="utility-bar">
+      <div class="util-group">
+        <button class="util-btn font-btn" data-size="-1" title="Decrease font size"><?php echo $currentLang === 'en' ? 'A-' : 'अ-'; ?></button>
+        <button class="util-btn font-btn" data-size="0"  title="Default font size"><?php echo $currentLang === 'en' ? 'A' : 'अ'; ?></button>
+        <button class="util-btn font-btn" data-size="1"  title="Increase font size"><?php echo $currentLang === 'en' ? 'A+' : 'अ+'; ?></button>
+      </div>
+      <div class="util-group">
+        <a href="<?php echo $_langEnUrl; ?>" class="util-btn <?php echo $currentLang === 'en' ? 'util-active' : ''; ?>">EN</a>
+        <span class="util-sep">|</span>
+        <a href="<?php echo $_langMrUrl; ?>" class="util-btn <?php echo $currentLang === 'mr' ? 'util-active' : ''; ?>">मराठी</a>
+      </div>
+    </div>
   <header class="header">
     <div class="d-flex align-items-center gap-3">
       <?php if ($isLoggedIn): ?>
@@ -521,7 +612,7 @@ if ($isLoggedIn) {
         <div class="title-section">
           <h1>Latur District</h1>
           <div class="subtitle">
-            <i class="fas fa-map-pin"></i> Meeting & Task Planner
+            <i class="fas fa-map-pin"></i> <?php echo __('common.meeting_task_planner'); ?>
           </div>
         </div>
       </a>
@@ -584,6 +675,7 @@ if ($isLoggedIn) {
       <?php endif; ?>
     </div>
   </header>
+  </div><!-- /.site-top-bar -->
 
   <!-- APP CONTAINER: SIDEBAR + MAIN -->
   <div class="app-container">
@@ -592,19 +684,19 @@ if ($isLoggedIn) {
     <aside class="sidebar" id="appSidebar">
       <div class="latur-badge">
         <i class="fas fa-city"></i>
-        <span><strong>Latur Division</strong><br><small>Maharashtra</small></span>
+        <span><strong><?php echo __('common.latur_division'); ?></strong><br><small><?php echo __('common.maharashtra'); ?></small></span>
       </div>
       <ul class="nav-menu">
         <li class="nav-item">
           <a href="<?php echo $basePath; ?>/index.php" class="nav-link <?php echo (basename($currentPath) == 'index.php' && strpos($currentPath, '/modules/') === false) ? 'active' : ''; ?>" <?php echo (basename($currentPath) == 'index.php' && strpos($currentPath, '/modules/') === false) ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-tachometer-alt"></i>
-            <span>Dashboard</span>
+            <span><?php echo __('common.dashboard'); ?></span>
           </a>
         </li>
         <li class="nav-item">
           <a href="<?php echo $basePath; ?>/modules/meetings/index.php" class="nav-link <?php echo strpos($currentPath, 'meetings') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'meetings') !== false ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-calendar-check"></i>
-            <span>Meetings</span>
+            <span><?php echo __('common.meetings'); ?></span>
           </a>
         </li>
         <li class="nav-item">
@@ -616,32 +708,38 @@ if ($isLoggedIn) {
         <li class="nav-item">
           <a href="<?php echo $basePath; ?>/modules/tasks/index.php" class="nav-link <?php echo strpos($currentPath, 'tasks') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'tasks') !== false ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-tasks"></i>
-            <span>Tasks</span>
+            <span><?php echo __('common.tasks'); ?></span>
           </a>
         </li>
         <li class="nav-item">
           <a href="<?php echo $basePath; ?>/modules/attendance/index.php" class="nav-link <?php echo strpos($currentPath, 'attendance') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'attendance') !== false ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-users"></i>
-            <span>Attendance</span>
+            <span><?php echo __('common.attendance'); ?></span>
           </a>
         </li>
         <li class="nav-item">
           <a href="<?php echo $basePath; ?>/modules/reports/index.php" class="nav-link <?php echo strpos($currentPath, 'reports') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'reports') !== false ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-chart-bar"></i>
-            <span>Reports</span>
+            <span><?php echo __('common.reports'); ?></span>
           </a>
         </li>
         <?php if (isOrganizer()): ?>
         <li class="nav-item">
           <a href="<?php echo $basePath; ?>/modules/users/index.php" class="nav-link <?php echo strpos($currentPath, 'users/index') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'users/index') !== false ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-user-cog"></i>
-            <span>Users</span>
+            <span><?php echo __('common.users'); ?></span>
           </a>
         </li>
         <li class="nav-item">
           <a href="<?php echo $basePath; ?>/modules/departments/index.php" class="nav-link <?php echo strpos($currentPath, 'departments') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'departments') !== false ? 'aria-current="page"' : ''; ?>>
             <i class="fas fa-building"></i>
-            <span>Departments</span>
+            <span><?php echo __('common.departments'); ?></span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="<?php echo $basePath; ?>/modules/pages/index.php" class="nav-link <?php echo strpos($currentPath, 'pages') !== false ? 'active' : ''; ?>" <?php echo strpos($currentPath, 'pages') !== false ? 'aria-current="page"' : ''; ?>>
+            <i class="fas fa-globe"></i>
+            <span>Portal Pages</span>
           </a>
         </li>
         <?php endif; ?>

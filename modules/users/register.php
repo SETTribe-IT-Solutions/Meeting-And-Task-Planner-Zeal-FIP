@@ -59,9 +59,8 @@ $designations = [
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Latur District | Register · Meeting & Task Planner</title>
     <meta name="description" content="Register for the Latur District Administration Meeting & Task Planner system. Create your official account to access meeting scheduling and task management.">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="../../assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="../../assets/vendor/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         :root {
             --gov-blue: #0b3d5f;

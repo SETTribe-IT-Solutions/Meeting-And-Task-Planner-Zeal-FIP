@@ -17,7 +17,7 @@ $all_users = $users_result ? $users_result->fetch_all(MYSQLI_ASSOC) : [];
 
 include_once '../../includes/header.php';
 ?>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
+<link rel="stylesheet" href="<?php echo $basePath; ?>/assets/vendor/tom-select/css/tom-select.bootstrap5.min.css">
 <style>
 .ts-wrapper.multi .ts-control { min-height: 42px; border-radius: 0.5rem; }
 .ts-wrapper.multi .ts-control input { color: #212529; }
@@ -56,7 +56,7 @@ include_once '../../includes/header.php';
                             <div class="input-group">
                                 <input type="number" id="meeting_time_hour" class="form-control text-center fw-bold rounded-start-3" min="1" max="12" placeholder="HH" required>
                                 <span class="input-group-text fw-bold px-1">:</span>
-                                <input type="number" id="meeting_time_minute" class="form-control text-center fw-bold" min="0" max="59" placeholder="MM" required>
+                                <input type="number" id="meeting_time_minute" class="form-control text-center fw-bold" min="0" max="59" placeholder="00" value="00">
                                 <select id="meeting_time_ampm" class="form-select fw-bold rounded-end-3" required style="min-width: 80px;">
                                     <option value="">--</option>
                                     <option value="AM">AM</option>
@@ -76,8 +76,22 @@ include_once '../../includes/header.php';
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Duration (minutes)</label>
-                            <input type="number" name="duration" class="form-control rounded-3" min="15" max="480" step="15" placeholder="e.g., 60">
-                            <div class="form-text">Optional — 15 min steps</div>
+                            <select name="duration" class="form-select rounded-3">
+                                <option value="">-- Not specified --</option>
+                                <option value="15">15 min</option>
+                                <option value="30">30 min</option>
+                                <option value="45">45 min</option>
+                                <option value="60">1 hr (60 min)</option>
+                                <option value="90">1.5 hr (90 min)</option>
+                                <option value="120">2 hr (120 min)</option>
+                                <option value="180">3 hr (180 min)</option>
+                                <option value="240">4 hr (240 min)</option>
+                                <option value="300">5 hr (300 min)</option>
+                                <option value="360">6 hr (360 min)</option>
+                                <option value="420">7 hr (420 min)</option>
+                                <option value="480">8 hr (480 min)</option>
+                            </select>
+                            <div class="form-text">Optional</div>
                         </div>
 
                         <!-- Row 3: Location (Offline / Hybrid) -->
@@ -136,6 +150,18 @@ include_once '../../includes/header.php';
                             <div id="attendeesHint" class="text-muted small mt-1">
                                 <i class="fas fa-info-circle me-1"></i>Select a department above to load attendees.
                             </div>
+                            <div id="attendeesWidget" style="display:none;">
+                                <select name="attendees[]" id="attendeesSelect" multiple></select>
+                            </div>
+                            <div id="attendeesHint" class="text-muted small mt-1">
+                                <i class="fas fa-info-circle me-1"></i>Select a department above to load attendees.
+                            </div>
+                        </div>
+
+                        <!-- Agenda -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Agenda <span class="text-danger">*</span></label>
+                            <textarea name="agenda" class="form-control rounded-3" rows="4" required placeholder="Meeting agenda points...&#10;• Point 1&#10;• Point 2"></textarea>
                         </div>
 
                         <!-- Agenda -->
@@ -252,6 +278,12 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        if (typeof TomSelect === 'undefined') {
+            attendeesHint.innerHTML = '<i class="fas fa-exclamation-circle me-1 text-warning"></i>Attendees selector unavailable — check your internet connection. Meeting can still be scheduled without attendees.';
+            attendeesHint.style.display = '';
+            return;
+        }
+
         attendeesWidget.style.display = '';
         tomSelect = new TomSelect('#attendeesSelect', {
             options: filtered.map(u => ({ value: String(u.id), name: u.name, email: u.email })),
@@ -301,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ── Form submit validation ──
     form.addEventListener('submit', function(e) {
         updateTime();
-        if (!hourInput.value || !minuteInput.value || !ampmSelect.value) {
+        if (!hourInput.value || !ampmSelect.value || !timeHidden.value) {
             e.preventDefault();
             hourInput.focus();
             hourInput.classList.add('is-invalid');
@@ -312,5 +344,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script src="<?php echo $basePath; ?>/assets/vendor/tom-select/js/tom-select.complete.min.js"></script>
 <?php include_once '../../includes/footer.php'; ?>

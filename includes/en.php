@@ -12,7 +12,13 @@ return [
         'attendance' => 'Attendance',
         'user_mgmt' => 'User Management',
         'reports' => 'Reports',
-        'my_profile' => 'My Profile'
+        'my_profile' => 'My Profile',
+        'meetings' => 'Meetings',
+        'tasks' => 'Tasks',
+        'departments' => 'Departments',
+        'latur_division' => 'Latur Division',
+        'maharashtra' => 'Maharashtra',
+        'meeting_task_planner' => 'Meeting & Task Planner'
     ],
     'auth' => [
         'login' => 'Login',

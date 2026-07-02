@@ -152,6 +152,13 @@ class AuthController {
             // Regenerate CSRF token
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
+            // Remember Me cookie
+            if (!empty($_POST['remember'])) {
+                setcookie('remember_email', $email, time() + (30 * 24 * 60 * 60), '/', '', false, true);
+            } else {
+                setcookie('remember_email', '', time() - 3600, '/');
+            }
+
             header('Location: ../index.php');
             exit();
 
